@@ -179,7 +179,8 @@
   :load-path "~/build/clj-refactor.el")
 
 (after! magit
-  (setq magit-clone-set-remote.pushDefault t))
+  (setq magit-clone-set-remote.pushDefault t
+        magit-remote-add-set-remote.pushDefault t))
 
 (map! :leader "co" #'recompile)
 (define-key!
@@ -225,3 +226,40 @@
              (set-visited-file-name newname)
              (set-buffer-modified-p nil)
              t))))
+
+(use-package! forge
+  :after magit)
+
+(add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
+(add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
+
+(after! flycheck
+  (add-to-list 'flycheck-checkers 'javascript-jshint))
+
+(add-to-list 'load-path "/usr/share/emacs/site-lisp/uim-el")
+(when (locate-library "uim") (require 'uim)
+      (global-set-key (kbd "C-\\") 'uim-mode)
+      (setq uim-default-im-engine "anthy"))
+
+(after! counsel
+  (define-key!
+    [remap +ivy/compile]         #'compile
+    [remap +ivy/project-compile] #'projectile-compile-project))
+
+
+(after! alchemist
+  (map! :localleader
+        :map elixir-mode-map
+        :desc "Mix" "x" #'alchemist-mix
+        :desc "Mix" "p" #'alchemist-iex-project-run
+        :desc "Mix" "t" #'alchemist-mix-test
+        (:prefix ("e" . "eval")
+          "b" #'alchemist-iex-compile-this-buffer
+          "l" #'alchemist-iex-send-current-line
+          "r" #'alchemist-iex-send-region
+          ))
+
+  (defun save-buffer-trace (&rest args)
+    (save-buffer))
+
+     (advice-add 'alchemist-iex-compile-this-buffer :before #'save-buffer-trace))

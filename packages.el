@@ -55,3 +55,5 @@
    :files ("hsp-mode.el")))
 
 (package! rainbow-mode)
+
+(package! forge)
