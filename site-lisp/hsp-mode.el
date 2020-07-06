@@ -86,27 +86,201 @@ regardless of where in the line point is when the TAB command is used.")
   (define-key hsp-mode-map "\C-m"	'hsp-newline)
   (define-key hsp-mode-map "\C-c?"	'hsp-help))
 
+(defvar hsp--face nil)
+(defvar-local hsp--tags-table nil)
+
+(defvar hsp-tags-completion-table-function #'hsp-elisp-tags-completion-table-function)
+
+(defun hsp-elisp-tags-completion-table-function ()
+  (let (table
+        (progress-reporter
+         (make-progress-reporter
+          (format "Making tags completion table for %s..." buffer-file-name)
+          (point-min) (point-max))))
+    (save-excursion
+      (goto-char (point-min))
+      ;; This regexp matches an explicit tag name or the place where
+      ;; it would start.
+      (while (re-search-forward
+              "[\f\t\n\r()=,; ]?\177\\\(?:\\([^\n\001]+\\)\001\\)?\\([^\n]+\\)?,\\([0-9]+\\)"
+              nil t)
+        (push (prog1
+                  ;; There is an explicit tag name.
+                  (list :explicit (when (match-beginning 1) (match-string-no-properties 1))
+                        :text (match-string-no-properties 2)
+                        :implicit (progn
+                                    ;; No explicit tag name.  Backtrack a little,
+                                    ;; and look for the implicit one.
+                                    (goto-char (match-beginning 0))
+                                    (skip-chars-backward "^\f\t\n\r()=,; ")
+                                    (prog1
+                                        (buffer-substring (point) (match-beginning 0))
+                                      (goto-char (match-end 0)))))
+                  (progress-reporter-update progress-reporter (point)))
+                table)))
+    table) )
+
+(defvar-local hsp-tags-completion-table nil)
+
+(defun hsp-tags-completion-table (&optional buf)
+  "Build `tags-completion-table' on demand for a buffer's tags tables.
+Optional argument BUF specifies the buffer for which to build
+\`tags-completion-table', and defaults to the current buffer.
+The tags included in the completion table are those in the current
+tags table for BUF and its (recursively) included tags tables."
+  (if (not buf) (setq buf (current-buffer)))
+  (with-current-buffer buf
+    (or hsp-tags-completion-table
+        ;; No cached value for this buffer.
+        (condition-case ()
+            (let (tables cont)
+              (message "Making tags completion table for %s..."
+                       buffer-file-name)
+              (save-excursion
+                ;; Iterate over the current list of tags tables.
+                (while (visit-tags-table-buffer cont buf)
+                  ;; Find possible completions in this table.
+                  (push (funcall hsp-tags-completion-table-function) tables)
+                  (setq cont t)))
+              (message "Making tags completion table for %s...done"
+                       buffer-file-name)
+              ;; Cache the result in a variable.
+              (setq hsp-tags-completion-table
+                    (nreverse (delete-dups (apply #'nconc tables)))))
+          (quit (message "Tags completion table construction aborted.")
+                (setq hsp-tags-completion-table nil))))))
+
+(defconst hsp--tag-type-regexps
+  '(("#enum global" . font-lock-type-face)
+    ("#define global ctype" . font-lock-variable-name-face)
+    ("#define global [a-zA-Z_]+(" . font-lock-function-name-face)
+    ("#define global" . font-lock-constant-face)
+    ("#def[c]?func" . font-lock-function-name-face)
+    ("^\\*[a-zA-Z_]+$" . font-lock-function-name-face)
+    ))
+
+(defun hsp--tag-type (tag)
+  (if-let ((ty (seq-find (lambda (pair)
+                           (string-match-p (car pair) (plist-get tag :text)))
+                         hsp--tag-type-regexps)))
+      (cdr ty)
+    font-lock-variable-name-face))
+
+(defun hsp--make-tags-table ()
+  (if hsp--tags-table hsp--tags-table
+    (let ((hash (make-hash-table))
+          (tags (hsp-tags-completion-table (current-buffer))))
+      (mapc (lambda (tag) (puthash (intern (downcase (plist-get tag :explicit))) (cons tag (hsp--tag-type tag)) hash)) tags)
+      (setq-local hsp--tags-table hash)
+      hash)))
+
+(defun hsp-highlight-vars (end)
+  (let ((tags (hsp--make-tags-table)))
+    (catch 'matcher
+      (while (re-search-forward "\\(?:\\sw\\|\\s_\\)+" end t)
+        (let ((ppss (save-excursion (syntax-ppss))))
+          (cond ((nth 3 ppss)  ; strings
+                 (search-forward "\"" end t))
+                ((nth 4 ppss)  ; comments
+                 (forward-line +1))
+                ;; hsp has case-insensitive identifiers...
+                ((let ((symbol (intern-soft (downcase (match-string-no-properties 0)))))
+                   (when-let ((ty (gethash symbol tags)))
+                     (setq hsp--face (cdr ty))
+                     (throw 'matcher t)))))))
+      nil)))
+
+(dolist (fn '(hsp--make-tags-table hsp-highlight-vars hsp--tag-type))
+  (unless (byte-code-function-p (symbol-function fn))
+    (with-no-warnings (byte-compile fn))))
+
+(defconst hsp-font-lock-keyword-beg-re "\\(?:^\\|[^.@$:]\\|\\.\\.\\)")
+
 (defconst hsp-font-lock-keywords
- '((";.*$"
-    0 font-lock-comment-face)
-   ("\\(if\\|then\\|else\\|goto\\|gosub\\|return\\|repeat\\|loop\\|stop\\|end\\|break\\|continue\\)"
-    0 font-lock-keyword-face :override :prepend)
-   ;; label started from "*"
-   ("\\*[a-zA-Z][_a-zA-Z0-9]*"
-    0 font-lock-constant-face)
-   ("\\(int\\|str\\|double\\)"
-    0 font-lock-type-face :override :prepend)
-   ("^[ \t]*\\(#.*\n\\)"
-    0 font-lock-preprocessor-face)
-   ;; obsolate
-   ("\\(system\\|hspver\\|cnt\\|err\\|stat\\|dispx\\|dispy\\|gmode\\|mousex\\|mousey\\|rval\\|gval\\|bval\\|cmdline\\|winx\\|winy\\|strsize\\|csrx\\|csry\\|windir\\|curdir\\|refstr\\)"
-    0 font-lock-variable-name-face)
-   ("\\(#func\\|#defcfunc\\|#deffunc\\)"
-    0 font-lock-keyword-face)
-   ("^\\s *#def[c]?func\\s +\\(?:[^( \t\n.]*\\.\\)?\\([^( \t\n]+\\)"
-   1 font-lock-function-name-face)
-   )
- "Additional expressions to highlight in HSP mode.")
+  `((";.*$"
+     0 font-lock-comment-face)
+    (,(concat
+       (regexp-opt
+        '("if"
+          "then"
+          "else"
+          "goto"
+          "gosub"
+          "return"
+          "repeat"
+          "loop"
+          "stop"
+          "end"
+          "break"
+          "continue"
+          "switch"
+          "case"
+          "swbreak"
+          "swend"
+          "call"
+          "default"
+          )
+        'symbols))
+     (0 font-lock-keyword-face))
+    ;; label started from "*"
+    ("\\*[a-zA-Z][_a-zA-Z0-9]+"
+     0 font-lock-constant-face)
+    (":"
+     0 font-lock-keyword-face)
+    (,(concat
+       hsp-font-lock-keyword-beg-re
+       (regexp-opt
+        '("int"
+          "str"
+          "double")
+        'symbols))
+     (1 font-lock-type-face))
+    ("^[ \t]*\\(#.*\n\\)"
+     0 font-lock-preprocessor-face)
+    ;; obsolate
+    (,(concat
+       hsp-font-lock-keyword-beg-re
+       (regexp-opt
+        '("refstr"
+          "curdir"
+          "windir"
+          "csry"
+          "csrx"
+          "strsize"
+          "winy"
+          "winx"
+          "cmdline"
+          "bval"
+          "gval"
+          "rval"
+          "mousey"
+          "mousex"
+          "gmode"
+          "dispy"
+          "dispx"
+          "stat"
+          "err"
+          "cnt"
+          "hspver"
+          "system")
+        'symbols))
+     (1 font-lock-variable-name-face))
+    (,(concat
+       hsp-font-lock-keyword-beg-re
+       (regexp-opt
+        '("#func"
+          "#defcfunc"
+          "#deffunc")
+        'symbols))
+     (1 font-lock-keyword-face))
+    ("^\\s *#def[c]?func\\s +\\(?:[^( \t\n.]*\\.\\)?\\([^( \t\n]+\\)"
+     1 font-lock-function-name-face)
+    (,(concat hsp-font-lock-keyword-beg-re
+              "\\_<\\(true\\|false\\|falseM\\)\\_>")
+     1 font-lock-constant-face)
+    (hsp-highlight-vars 0 hsp--face)
+    )
+  "Additional expressions to highlight in HSP mode.")
 
 (put 'hsp-mode 'font-lock-defaults '(hsp-font-lock-keywords nil t))
 

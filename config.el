@@ -21,6 +21,17 @@
 ;; font string. You generally only need these two:
 (setq doom-font (font-spec :family "Kochi Gothic" :size 12))
 
+(defun ruin/init-cjk-font ()
+  (dolist (charset '(kana han symbol cjk-misc bopomofo))
+    (set-fontset-font (frame-parameter nil 'font) charset doom-font)))
+
+(if (daemonp)
+    (add-hook 'after-make-frame-functions
+              (lambda (frame)
+                (select-frame frame)
+                (ruin/init-cjk-font)))
+  (ruin/init-cjk-font))
+
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
@@ -180,7 +191,8 @@
 
 (after! magit
   (setq magit-clone-set-remote.pushDefault t
-        magit-remote-add-set-remote.pushDefault t))
+        magit-remote-add-set-remote.pushDefault t
+        magit-commit-ask-to-stage nil))
 
 (map! :leader "co" #'recompile)
 (define-key!
@@ -191,9 +203,27 @@
 (add-hook 'hsp-mode-hook (lambda ()
                            (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
                            (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
-                           ))
+                           (define-key hsp-mode-map (kbd "C-j") nil)))
 
 (use-package! rainbow-mode)
+(after! rainbow-mode
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("{\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*[0-9]*\.?[0-9]+\s*%?\s*}"
+                 (0 (rainbow-colorize-rgb))))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*)"
+                 (0 (rainbow-colorize-rgb))))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("set_color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*)"
+                 (0 (rainbow-colorize-rgb))))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("{\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*}"
+                 (0 (rainbow-colorize-rgb))))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("color \s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*"
+                 (0 (rainbow-colorize-rgb))))
+  (add-hook 'lua-mode-hook 'rainbow-mode)
+  (add-hook 'hsp-mode-hook 'rainbow-mode))
 
 
 ;;http://steve.yegge.googlepages.com/my-dot-emacs-file
@@ -246,7 +276,6 @@
     [remap +ivy/compile]         #'compile
     [remap +ivy/project-compile] #'projectile-compile-project))
 
-
 (after! alchemist
   (map! :localleader
         :map elixir-mode-map
@@ -254,12 +283,59 @@
         :desc "Mix" "p" #'alchemist-iex-project-run
         :desc "Mix" "t" #'alchemist-mix-test
         (:prefix ("e" . "eval")
-          "b" #'alchemist-iex-compile-this-buffer
-          "l" #'alchemist-iex-send-current-line
-          "r" #'alchemist-iex-send-region
-          ))
+         "b" #'alchemist-iex-compile-this-buffer
+         "l" #'alchemist-iex-send-current-line
+         "r" #'alchemist-iex-send-region
+         ))
 
   (defun save-buffer-trace (&rest args)
     (save-buffer))
 
-     (advice-add 'alchemist-iex-compile-this-buffer :before #'save-buffer-trace))
+  (advice-add 'alchemist-iex-compile-this-buffer :before #'save-buffer-trace))
+
+(after! quickrun
+  (map! :leader
+        (:prefix-map ("c" . "compile")
+         :desc "Quickrun this file" "q" #'quickrun)))
+
+(add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))
+(when (locate-library "open-nefia")
+  (require 'open-nefia)
+  (after! open-nefia
+    (setq lua-indent-level 3)
+    (map! :localleader
+          :map lua-mode-map
+          "i" #'open-nefia-insert-require
+          "r" #'open-nefia-require-this-file
+          "p" #'open-nefia-start-repl
+          "c" #'open-nefia-start-game
+          (:prefix ("e" . "eval")
+           "l" #'open-nefia-send-current-line
+           "b" #'open-nefia-send-buffer
+           "d" #'open-nefia-hotload-this-file
+           "r" #'open-nefia-send-region
+           "f" #'open-nefia-send-defun))
+    ))
+
+(after! elisp-mode
+  (map! :localleader
+        :map emacs-lisp-mode-map
+        (:prefix ("e" . "eval")
+         "s" #'eval-last-sexp)))
+
+(defun ruin/yank-path-of-buffer-file (&optional arg file)
+  (interactive "P")
+  (or file
+      (setq file (buffer-file-name))
+      (error "Current buffer has no file"))
+  (let ((filename (if arg file (file-name-directory file))))
+    (kill-new filename)
+    (message filename)))
+
+(after! lua-mode
+  (setq compilation-error-regexp-alist (list (list lua-traceback-line-re 1 2)))
+  (add-to-list 'compilation-error-regexp-alist
+               '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2)))
+
+(after! highlight-numbers
+  (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
