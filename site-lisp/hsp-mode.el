@@ -155,6 +155,7 @@ tags table for BUF and its (recursively) included tags tables."
     ("#define global ctype" . font-lock-variable-name-face)
     ("#define global [a-zA-Z_]+(" . font-lock-function-name-face)
     ("#define global" . font-lock-constant-face)
+    ("#define [a-zA-Z_]+(" . font-lock-function-name-face)
     ("#def[c]?func" . font-lock-function-name-face)
     ("^\\*[a-zA-Z_]+$" . font-lock-function-name-face)
     ))
@@ -202,6 +203,7 @@ tags table for BUF and its (recursively) included tags tables."
     (,(concat
        (regexp-opt
         '("if"
+          "or"
           "then"
           "else"
           "goto"
@@ -213,12 +215,15 @@ tags table for BUF and its (recursively) included tags tables."
           "end"
           "break"
           "continue"
+          "_continue"
           "switch"
           "case"
           "swbreak"
           "swend"
           "call"
           "default"
+          "while"
+          "wend"
           )
         'symbols))
      (0 font-lock-keyword-face))
@@ -286,7 +291,7 @@ tags table for BUF and its (recursively) included tags tables."
 
 (defvar hsp-imenu-generic-expression
   '(("Function"  "^\\s *#def[c]?func\\s +\\(?:[^( \t\n.]*\\.\\)?\\([^( \t\n]+\\)" 1)
-    ))
+    ("Label"  "^\\*\\([a-zA-Z][_a-zA-Z0-9]+\\)" 1)))
 
 (defvar hsp-mode-syntax-table nil
   "Syntax table used while in HSP mode.")

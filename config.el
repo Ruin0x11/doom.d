@@ -77,20 +77,22 @@
 (reload-site-lisp)
 
 (after! evil
-  (setq evil-ex-substitute-global nil)
+  (setq evil-ex-substitute-global nil
+        scroll-margin 5)
   (map! :leader
         "<RET>" #'evil-ex-nohighlight)
   (map!
    :g "C-h" #'evil-window-left
    :g "C-l" #'evil-window-right
    :g "C-k" #'evil-window-up
-   :g "C-j" #'evil-window-down))
+   :g "C-j" #'evil-window-down)
+  (require 'evil-little-word))
 
 (after! evil-snipe
   (evil-snipe-mode -1))
 
 (after! which-key
-  (setq which-key-idle-delay 0.2))
+  (setq which-key-idle-delay 1))
 
 (after! lsp-mode
   (require 'lsp-lua-sumneko)
@@ -102,7 +104,8 @@
 
 (after! ivy
   (when IS-WINDOWS
-    (setq counsel-rg-base-command "rg -M 240 --with-filename --no-heading --line-number --color never %s --path-separator // .")))
+    (setq counsel-rg-base-command "rg -M 240 --with-filename --no-heading --line-number --color never %s --path-separator // .")
+    (setq ivy-height 40)))
 
 (after! projectile
   (when (executable-find doom-projectile-fd-binary)
@@ -154,10 +157,6 @@
 (define-key! help-map
   "h" #'helpful-at-point)
 
-(map! :leader
-      (:prefix-map ("f" . "file")
-     :desc "Find file from URL" "w" #'ruin/view-url))
-
 (after! smartparens
   (map! :map lisp-mode-map
         :ni ">" #'sp-slurp-hybrid-sexp
@@ -192,7 +191,8 @@
 (after! magit
   (setq magit-clone-set-remote.pushDefault t
         magit-remote-add-set-remote.pushDefault t
-        magit-commit-ask-to-stage nil))
+        magit-commit-ask-to-stage nil
+        magit-no-confirm '(stage-all-changes)))
 
 (map! :leader "co" #'recompile)
 (define-key!
@@ -227,7 +227,7 @@
 
 
 ;;http://steve.yegge.googlepages.com/my-dot-emacs-file
-(defun rename-file-and-buffer (new-name)
+(defun ruin/rename-file-and-buffer (new-name)
   "Renames both current buffer and file it's visiting to NEW-NAME."
   (interactive "sNew name: ")
   (let ((name (buffer-name))
@@ -240,7 +240,7 @@
     (set-visited-file-name new-name)
     (set-buffer-modified-p nil)))
 
-(defun move-buffer-file (dir)
+(defun ruin/move-buffer-file (dir)
   "Moves both current buffer and file it's visiting to DIR."
   (interactive "DNew directory: ")
   (let* ((name (buffer-name))
@@ -332,10 +332,68 @@
     (kill-new filename)
     (message filename)))
 
+(defun ruin/regenerate-ltags ()
+  (interactive)
+  (when (projectile-project-p)
+    (let ((default-directory (projectile-project-root)))
+      (shell-command "ltags -nr -e **/*.lua")
+      (when (projectile-project-p)
+        (setq-local tags-file-name (string-join (list (projectile-project-root) "TAGS"))))
+      (message "TAGS regenerated."))))
+
 (after! lua-mode
   (setq compilation-error-regexp-alist (list (list lua-traceback-line-re 1 2)))
   (add-to-list 'compilation-error-regexp-alist
-               '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2)))
+               '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2))
+  (evil-define-key 'normal compilation-mode-map (kbd "C-j") nil)
+  (evil-define-key 'normal compilation-mode-map (kbd "C-k") nil)
+  (add-hook 'lua-mode-hook (lambda () (set-company-backend! 'lua-mode '(company-capf))))
+  (require 'lua-block)
+  (add-hook 'lua-mode-hook #'lua-block-mode)
+  (setq lua-block-highlight-toggle t)
+  (map! :localleader
+        :map lua-mode-map
+        "A" #'ruin/regenerate-ltags))
 
 (after! highlight-numbers
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
+
+(after! hl-line
+  (global-hl-line-mode 1))
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(safe-local-variable-values
+   (quote
+    ((projectile-project-run-cmd . "OpenNefia")
+     (projectile-project-compilation-cmd . "OpenNefia")))))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
+
+(map! :leader
+      (:prefix-map ("f" . "file")
+       :desc "Find file from URL" "w" #'ruin/view-url
+       :desc "Rename file and buffer" "R" #'ruin/rename-file-and-buffer
+       :desc "Move buffer file" "M" #'ruin/move-buffer-file)
+
+(global-set-key (kbd "C-x C-s") 'sort-lines)
+(global-set-key (kbd "C-x |") 'align-regexp)
+
+(defun ruin/refactor-name (&optional newsym)
+  "Refactors the name at point in the current buffer unconditionally."
+  (interactive)
+  (let* ((sym (symbol-name (symbol-at-point)))
+         (newsym (or newsym
+                     (read-string (concat "Replace \"" sym "\" with: "))))
+         (regexp (concat "\\_<\\(" (regexp-quote sym) "\\)\\_>")))
+    (save-excursion
+      (goto-char (point-min))
+      (let ((case-fold-search nil))
+        (while (re-search-forward regexp nil t)
+          (replace-match newsym t nil))))))
