@@ -296,10 +296,10 @@ tags table for BUF and its (recursively) included tags tables."
 (defvar hsp-mode-syntax-table nil
   "Syntax table used while in HSP mode.")
 
-(if hsp-mode-syntax-table
-    ()
+(unless hsp-mode-syntax-table
   (setq hsp-mode-syntax-table (make-syntax-table))
   (modify-syntax-entry ?\\ "\\"  hsp-mode-syntax-table)
+  (modify-syntax-entry ?¥ "\\"  hsp-mode-syntax-table)
   (modify-syntax-entry ?( "()1"  hsp-mode-syntax-table)
 		       (modify-syntax-entry ?) ")(4"  hsp-mode-syntax-table)
   (modify-syntax-entry ?* ". 23" hsp-mode-syntax-table)

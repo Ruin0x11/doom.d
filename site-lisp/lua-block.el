@@ -225,7 +225,7 @@ This is a minor-mode for lua-mode and enh-lua-mode only."
 		  (cond
 		   ((and (string= cur "end"))
 			(setq key (1+ key)))
-		   (t
+		   ((not (string= cur "while")) ; 'while' and 'do' combine into one statement
 			(setq key (1- key))))))
       (when (= key 0)
 		pos))))

@@ -64,6 +64,8 @@
 ;; they are implemented.
 ;;
 
+(setq tags-add-tables t)
+
 (defun reload-site-lisp ()
   "Puts site-lisp and its subdirectories into load-path."
   (interactive)
@@ -81,11 +83,11 @@
         scroll-margin 5)
   (map! :leader
         "<RET>" #'evil-ex-nohighlight)
-  (map!
-   :g "C-h" #'evil-window-left
-   :g "C-l" #'evil-window-right
-   :g "C-k" #'evil-window-up
-   :g "C-j" #'evil-window-down)
+  (map! :map general-override-mode-map
+        :n "C-j" #'evil-window-down
+        :n "C-k" #'evil-window-up
+        :n "C-h" #'evil-window-left
+        :n "C-l" #'evil-window-right)
   (require 'evil-little-word))
 
 (after! evil-snipe
@@ -159,8 +161,11 @@
 
 (after! smartparens
   (map! :map lisp-mode-map
-        :ni ">" #'sp-slurp-hybrid-sexp
-        :ni "<" #'sp-forward-barf-sexp)
+        :nv ">" #'sp-slurp-hybrid-sexp
+        :nv "<" #'sp-forward-barf-sexp)
+  (map! :map emacs-lisp-mode-map
+        :nv ">" #'sp-slurp-hybrid-sexp
+        :nv "<" #'sp-forward-barf-sexp)
   (map! :leader
         (:prefix-map ("l" . "lisp")
          ;; "c" #'sp-convolute-sexp
@@ -196,8 +201,10 @@
 
 (map! :leader "co" #'recompile)
 (define-key!
-  "<f7>" #'previous-error
-  "<f8>" #'next-error)
+  "<f7>" #'previous-error-no-select
+  "<f8>" #'next-error-no-select
+  "M-p" #'flycheck-previous-error
+  "M-n" #'flycheck-next-error)
 
 (require 'hsp-mode)
 (add-hook 'hsp-mode-hook (lambda ()
@@ -205,7 +212,6 @@
                            (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
                            (define-key hsp-mode-map (kbd "C-j") nil)))
 
-(use-package! rainbow-mode)
 (after! rainbow-mode
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("{\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*[0-9]*\.?[0-9]+\s*%?\s*}"
@@ -295,8 +301,12 @@
 
 (after! quickrun
   (map! :leader
-        (:prefix-map ("c" . "compile")
-         :desc "Quickrun this file" "q" #'quickrun)))
+        (:prefix-map ("k" . "compile")
+         :desc "Quickrun this file" "q" #'quickrun
+         :desc "Recompile" "r" #'recompile
+         :desc "Compile" "c" #'compile
+         :desc "Kill compilation" "k" #'kill-compilation
+         :desc "Compile project" "p" #'projectile-compile-project)))
 
 (add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))
 (when (locate-library "open-nefia")
@@ -306,7 +316,9 @@
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
+          "l" #'open-nefia-locale-search
           "r" #'open-nefia-require-this-file
+          "t" #'open-nefia-insert-template
           "p" #'open-nefia-start-repl
           "c" #'open-nefia-start-game
           (:prefix ("e" . "eval")
@@ -347,13 +359,57 @@
                '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2))
   (evil-define-key 'normal compilation-mode-map (kbd "C-j") nil)
   (evil-define-key 'normal compilation-mode-map (kbd "C-k") nil)
-  (add-hook 'lua-mode-hook (lambda () (set-company-backend! 'lua-mode '(company-capf))))
+  (add-hook 'lua-mode-hook (lambda ()
+                             (set-company-backend! 'lua-mode '())
+                             (company-mode 0)
+                             (setq-local rainbow-html-colors t)))
+  (set-company-backend! 'lua-mode '())
   (require 'lua-block)
   (add-hook 'lua-mode-hook #'lua-block-mode)
   (setq lua-block-highlight-toggle t)
   (map! :localleader
         :map lua-mode-map
-        "A" #'ruin/regenerate-ltags))
+        "A" #'ruin/regenerate-ltags)
+
+  ;; doesn't work when required...
+  (defun sp-lua-post-keyword-insert (id action _context)
+    "ID, ACTION, CONTEXT."
+    (cond
+     ((eq action 'insert)
+      (cond
+       ((member id '("while" "for"))
+        (insert " do")
+        (save-excursion (newline-and-indent))
+        (backward-char 3))
+       ((equal id "if")
+        (insert " then")
+        (save-excursion (newline-and-indent))
+        (backward-char 5))
+       ((equal id "function")
+        (save-excursion (newline-and-indent))
+        (insert " "))))))
+
+  ;; all the pairs are expanded only if followed by "SPC" event.  This
+  ;; will reduce false positives like 'dIFficult' to trigger.
+  (sp-with-modes '(lua-mode)
+    (sp-local-pair "if" "end"
+                   :when '(("SPC"))
+                   :unless '(sp-in-comment-p sp-in-string-p)
+                   :post-handlers '(sp-lua-post-keyword-insert))
+    (sp-local-pair "function" "end"
+                   :when '(("SPC"))
+                   :unless '(sp-in-comment-p sp-in-string-p)
+                   :post-handlers '(sp-lua-post-keyword-insert))
+    (sp-local-pair "for" "end"
+                   :when '(("SPC"))
+                   :unless '(sp-in-comment-p sp-in-string-p)
+                   :post-handlers '(sp-lua-post-keyword-insert))
+    (sp-local-pair "while" "end"
+                   :when '(("SPC"))
+                   :unless '(sp-in-comment-p sp-in-string-p)
+                   :post-handlers '(sp-lua-post-keyword-insert))))
+(set-company-backend! 'lua-mode '())
+(require 'smartparens-lua)
 
 (after! highlight-numbers
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
@@ -367,7 +423,9 @@
  ;; If there is more than one, they won't work right.
  '(safe-local-variable-values
    (quote
-    ((projectile-project-run-cmd . "OpenNefia")
+    ((Coding . utf-8)
+     (projectile-project-compilation-cmd . "wxLua src/main.lua")
+     (projectile-project-run-cmd . "OpenNefia")
      (projectile-project-compilation-cmd . "OpenNefia")))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -375,12 +433,6 @@
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
  )
-
-(map! :leader
-      (:prefix-map ("f" . "file")
-       :desc "Find file from URL" "w" #'ruin/view-url
-       :desc "Rename file and buffer" "R" #'ruin/rename-file-and-buffer
-       :desc "Move buffer file" "M" #'ruin/move-buffer-file)
 
 (global-set-key (kbd "C-x C-s") 'sort-lines)
 (global-set-key (kbd "C-x |") 'align-regexp)
@@ -397,3 +449,82 @@
       (let ((case-fold-search nil))
         (while (re-search-forward regexp nil t)
           (replace-match newsym t nil))))))
+
+(defun ruin/kill-term-buffer-on-exit ()
+  "Hook for deleting the terminal window automatically."
+  (let* ((buff (current-buffer))
+         (proc (get-buffer-process buff)))
+    (lexical-let ((buff buff))
+      (set-process-sentinel proc (lambda (process event)
+                                   (if (string= event "finished\n")
+                                       (kill-buffer buff)))))))
+
+(add-hook 'term-exec-hook #'ruin/kill-term-buffer-on-exit)
+
+(defun ruin/popup-term ()
+  (interactive)
+  (let ((+popup-default-display-buffer-actions
+         '(+popup-display-buffer-stacked-side-window-fn))
+        (display-buffer-alist +popup--display-buffer-alist)
+        (buffer (ansi-term shell-file-name)))
+    (push (+popup-make-rule "." +popup-defaults) display-buffer-alist)
+    (bury-buffer buffer)
+    (pop-to-buffer buffer)))
+
+(set-popup-rules!
+    '(("^\\*ansi-term"
+       :vslot -7 :side bottom :size 1.0 :select t :quit nil :ttl 0)))
+
+(defun ruin/find-build ()
+  (interactive)
+  (counsel-find-file "~/build"))
+
+(defun ruin/parent-dir (filename)
+  "Return parent directory of absolute FILENAME."
+  (file-name-directory (directory-file-name filename)))
+
+(defun ruin/copy-current-line-position-to-clipboard ()
+  "Copy current line in file to clipboard as '</path/to/file>:<line-number>'."
+  (interactive)
+  (let* ((path (file-relative-name (buffer-file-name) (ruin/parent-dir (projectile-project-root))))
+         (line (buffer-substring-no-properties (point-at-bol) (point-at-eol)))
+         (path-with-line-number
+          (format "-- >>>>>>>> %s:%d %s ..." path (line-number-at-pos)
+                  (substring line 0 (min (length line) 50)))))
+    (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
+    (message path-with-line-number)))
+
+(defun ruin/copy-current-line-position-to-clipboard-2 ()
+  "Copy current line in file to clipboard as '</path/to/file>:<line-number>'."
+  (interactive)
+  (let* ((path (file-relative-name (buffer-file-name) (ruin/parent-dir (projectile-project-root))))
+         (line (buffer-substring-no-properties (point-at-bol) (point-at-eol)))
+         (path-with-line-number
+          (format "-- <<<<<<<< %s:%d %s ..." path (line-number-at-pos)
+                  (substring line 0 (min (length line) 50)))))
+    (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
+    (message path-with-line-number)))
+
+(map! :leader
+      :desc "Popup terminal" "\"" #'ruin/popup-term
+      (:prefix-map ("a" . "app")
+       :desc "Calc" "c" #'calc
+       :desc "Build regexp" "x" #'re-builder)
+      (:prefix-map ("y" . "yank")
+       :desc "Yank line and file" "l" #'ruin/copy-current-line-position-to-clipboard
+       :desc "Yank line and file end" "p" #'ruin/copy-current-line-position-to-clipboard-2)
+      (:prefix-map ("f" . "file")
+       :desc "Find file from URL" "w" #'ruin/view-url
+       :desc "Find build" "b" #'ruin/find-build
+       :desc "Rename file and buffer" "R" #'ruin/rename-file-and-buffer
+       :desc "Move buffer file" "M" #'ruin/move-buffer-file)
+      (:prefix-map ("s" . "search")
+       :desc "Search project (EX)" "P" #'+default/search-project-for-symbol-at-point))
+
+(define-key global-map [remap compile] nil)
+
+(after! hi-lock
+  (set-face-foreground 'hi-blue "#444")
+  (set-face-foreground 'hi-yellow "#444")
+  (set-face-foreground 'hi-pink "#444")
+  (set-face-foreground 'hi-green "#444"))
