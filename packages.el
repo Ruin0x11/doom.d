@@ -61,3 +61,5 @@
 (package! csv-mode)
 
 (package! string-inflection)
+
+(package! dtrt-indent :disable t)

@@ -126,6 +126,39 @@
                                    '(ruin/flycheck-locate-config-file-ancestor-directories))))
   (add-hook 'lua-mode-hook #'lsp!))
 
+(defun ruin/set-major-mode-from-name (name)
+  (let ((case-insensitive-p (file-name-case-insensitive-p name)))
+        ;; Remove backup-suffixes from file name.
+        (setq name (file-name-sans-versions name))
+        ;; Remove remote file name identification.
+        (while name
+          ;; Find first matching alist entry.
+          (setq mode
+                (if case-insensitive-p
+                    ;; Filesystem is case-insensitive.
+                    (let ((case-fold-search t))
+                      (assoc-default name auto-mode-alist
+                                     'string-match))
+                  ;; Filesystem is case-sensitive.
+                  (or
+                   ;; First match case-sensitively.
+                   (let ((case-fold-search nil))
+                     (assoc-default name auto-mode-alist
+                                    'string-match))
+                   ;; Fallback to case-insensitive match.
+                   (and auto-mode-case-fold
+                        (let ((case-fold-search t))
+                          (assoc-default name auto-mode-alist
+                                         'string-match))))))
+          (if (and mode
+                   (consp mode)
+                   (cadr mode))
+              (setq mode (car mode)
+                    name (substring name 0 (match-beginning 0)))
+            (setq name nil))
+          (when mode
+            (set-auto-mode-0 mode nil)))))
+
 (defun ruin/view-url ()
   "Open a new buffer containing the contents of URL."
   (interactive)
@@ -137,7 +170,7 @@
     (re-search-forward "^$")
     (delete-region (point-min) (point))
     (delete-blank-lines)
-    (set-auto-mode)))
+    (ruin/set-major-mode-from-name url)))
 
 (defun explorer ()
   "Open Finder or Windows Explorer in the current directory."
@@ -228,7 +261,6 @@
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("color \s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*"
                  (0 (rainbow-colorize-rgb))))
-  (add-hook 'lua-mode-hook 'rainbow-mode)
   (add-hook 'hsp-mode-hook 'rainbow-mode))
 
 
@@ -299,14 +331,13 @@
 
   (advice-add 'alchemist-iex-compile-this-buffer :before #'save-buffer-trace))
 
-(after! quickrun
-  (map! :leader
-        (:prefix-map ("k" . "compile")
-         :desc "Quickrun this file" "q" #'quickrun
-         :desc "Recompile" "r" #'recompile
-         :desc "Compile" "c" #'compile
-         :desc "Kill compilation" "k" #'kill-compilation
-         :desc "Compile project" "p" #'projectile-compile-project)))
+(map! :leader
+      (:prefix-map ("k" . "compile")
+       :desc "Quickrun this file" "q" #'quickrun
+       :desc "Recompile" "r" #'recompile
+       :desc "Compile" "c" #'compile
+       :desc "Kill compilation" "k" #'kill-compilation
+       :desc "Compile project" "p" #'projectile-compile-project))
 
 (add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))
 (when (locate-library "open-nefia")
@@ -316,18 +347,30 @@
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
+          "I" #'open-nefia-insert-missing-requires
           "l" #'open-nefia-locale-search
           "r" #'open-nefia-require-this-file
           "t" #'open-nefia-insert-template
           "p" #'open-nefia-start-repl
           "c" #'open-nefia-start-game
+          "h" #'open-nefia-run-headlessly
+          "t" #'open-nefia-run-tests
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
            "d" #'open-nefia-hotload-this-file
            "r" #'open-nefia-send-region
            "f" #'open-nefia-send-defun))
-    ))
+    )
+
+  (require 'open-nefia-context)
+  (after! open-nefia-context
+    (add-hook 'lua-mode-hook 'open-nefia-context-mode nil)
+    (map! :localleader
+          :map lua-mode-map
+          (:prefix ("o" . "context")
+           "g" #'open-nefia-context-goto
+           "s" #'open-nefia-context-show))))
 
 (after! elisp-mode
   (map! :localleader
@@ -362,10 +405,11 @@
   (add-hook 'lua-mode-hook (lambda ()
                              (set-company-backend! 'lua-mode '())
                              (company-mode 0)
-                             (setq-local rainbow-html-colors t)))
-  (set-company-backend! 'lua-mode '())
+                             (setq-local rainbow-html-colors t)
+                             (lua-block-mode t)
+                             (rainbow-mode 1))
+            t)
   (require 'lua-block)
-  (add-hook 'lua-mode-hook #'lua-block-mode)
   (setq lua-block-highlight-toggle t)
   (map! :localleader
         :map lua-mode-map
@@ -461,19 +505,20 @@
 
 (add-hook 'term-exec-hook #'ruin/kill-term-buffer-on-exit)
 
+(set-popup-rules!
+    '(("^\\*ansi-term"
+       :vslot -7 :side bottom :size 0.3 :select t :quit nil :ttl 0)))
+
 (defun ruin/popup-term ()
   (interactive)
   (let ((+popup-default-display-buffer-actions
          '(+popup-display-buffer-stacked-side-window-fn))
         (display-buffer-alist +popup--display-buffer-alist)
-        (buffer (ansi-term shell-file-name)))
-    (push (+popup-make-rule "." +popup-defaults) display-buffer-alist)
+        (buffer (save-window-excursion
+                  (ansi-term shell-file-name)
+                  (current-buffer))))
     (bury-buffer buffer)
     (pop-to-buffer buffer)))
-
-(set-popup-rules!
-    '(("^\\*ansi-term"
-       :vslot -7 :side bottom :size 1.0 :select t :quit nil :ttl 0)))
 
 (defun ruin/find-build ()
   (interactive)
@@ -507,12 +552,14 @@
 
 (map! :leader
       :desc "Popup terminal" "\"" #'ruin/popup-term
+      (:prefix-map ("p" . "project")
+        :desc "Compile project" "c" #'projectile-compile-project)
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("y" . "yank")
-       :desc "Yank line and file" "l" #'ruin/copy-current-line-position-to-clipboard
-       :desc "Yank line and file end" "p" #'ruin/copy-current-line-position-to-clipboard-2)
+       :desc "Yank line and file" "p" #'ruin/copy-current-line-position-to-clipboard
+       :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2)
       (:prefix-map ("f" . "file")
        :desc "Find file from URL" "w" #'ruin/view-url
        :desc "Find build" "b" #'ruin/find-build
@@ -521,10 +568,21 @@
       (:prefix-map ("s" . "search")
        :desc "Search project (EX)" "P" #'+default/search-project-for-symbol-at-point))
 
+(after! hl-todo
+  (push '("BUG" error bold) hl-todo-keyword-faces))
+
 (define-key global-map [remap compile] nil)
+(define-key global-map [remap projectile-compile-project] nil)
 
 (after! hi-lock
   (set-face-foreground 'hi-blue "#444")
   (set-face-foreground 'hi-yellow "#444")
   (set-face-foreground 'hi-pink "#444")
   (set-face-foreground 'hi-green "#444"))
+
+(after! markdown-mode
+  (add-hook 'markdown-mode-hook (lambda () (toggle-truncate-lines t) (font-lock-mode -1))))
+(put 'narrow-to-region 'disabled nil)
+
+(after! migemo
+  (setq migemo-isearch-enable-p nil))
