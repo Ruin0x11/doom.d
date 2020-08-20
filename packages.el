@@ -63,3 +63,9 @@
 (package! string-inflection)
 
 (package! dtrt-indent :disable t)
+
+(package! clang-format)
+
+(package! arduino-mode)
+
+(package! sed-mode)

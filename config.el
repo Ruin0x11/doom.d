@@ -65,6 +65,11 @@
 ;;
 
 (setq tags-add-tables t)
+(savehist-mode 1)
+
+(after! recentf
+  (recentf-load-list)
+  (run-at-time nil (* 120 60) #'recentf-save-list)) ; every 120 mins
 
 (defun reload-site-lisp ()
   "Puts site-lisp and its subdirectories into load-path."
@@ -124,40 +129,41 @@
   (add-hook 'lua-mode-hook (lambda ()
                              (setq flycheck-locate-config-file-functions
                                    '(ruin/flycheck-locate-config-file-ancestor-directories))))
-  (add-hook 'lua-mode-hook #'lsp!))
+  ;(add-hook 'lua-mode-hook #'lsp!)
+  (setq lua-default-application "luajit"))
 
 (defun ruin/set-major-mode-from-name (name)
   (let ((case-insensitive-p (file-name-case-insensitive-p name)))
-        ;; Remove backup-suffixes from file name.
-        (setq name (file-name-sans-versions name))
-        ;; Remove remote file name identification.
-        (while name
-          ;; Find first matching alist entry.
-          (setq mode
-                (if case-insensitive-p
-                    ;; Filesystem is case-insensitive.
+    ;; Remove backup-suffixes from file name.
+    (setq name (file-name-sans-versions name))
+    ;; Remove remote file name identification.
+    (while name
+      ;; Find first matching alist entry.
+      (setq mode
+            (if case-insensitive-p
+                ;; Filesystem is case-insensitive.
+                (let ((case-fold-search t))
+                  (assoc-default name auto-mode-alist
+                                 'string-match))
+              ;; Filesystem is case-sensitive.
+              (or
+               ;; First match case-sensitively.
+               (let ((case-fold-search nil))
+                 (assoc-default name auto-mode-alist
+                                'string-match))
+               ;; Fallback to case-insensitive match.
+               (and auto-mode-case-fold
                     (let ((case-fold-search t))
                       (assoc-default name auto-mode-alist
-                                     'string-match))
-                  ;; Filesystem is case-sensitive.
-                  (or
-                   ;; First match case-sensitively.
-                   (let ((case-fold-search nil))
-                     (assoc-default name auto-mode-alist
-                                    'string-match))
-                   ;; Fallback to case-insensitive match.
-                   (and auto-mode-case-fold
-                        (let ((case-fold-search t))
-                          (assoc-default name auto-mode-alist
-                                         'string-match))))))
-          (if (and mode
-                   (consp mode)
-                   (cadr mode))
-              (setq mode (car mode)
-                    name (substring name 0 (match-beginning 0)))
-            (setq name nil))
-          (when mode
-            (set-auto-mode-0 mode nil)))))
+                                     'string-match))))))
+      (if (and mode
+               (consp mode)
+               (cadr mode))
+          (setq mode (car mode)
+                name (substring name 0 (match-beginning 0)))
+        (setq name nil))
+      (when mode
+        (set-auto-mode-0 mode nil)))))
 
 (defun ruin/view-url ()
   "Open a new buffer containing the contents of URL."
@@ -178,16 +184,16 @@
   (cond
    ((string= system-type "darwin")
     (shell-command (format "open -b com.apple.finder %s"
-			   (if (buffer-file-name)
-			       (file-name-directory (buffer-file-name))
-			     "~/"))))
+                           (if (buffer-file-name)
+                               (file-name-directory (buffer-file-name))
+                             "~/"))))
    ((string= system-type "windows-nt")
     (shell-command (format "explorer %s"
-			   (replace-regexp-in-string
-			    "/" "\\\\"
-			    (if (buffer-file-name)
-				(file-name-directory (buffer-file-name))
-			      (expand-file-name  "~/"))))))))
+                           (replace-regexp-in-string
+                            "/" "\\\\"
+                            (if (buffer-file-name)
+                                (file-name-directory (buffer-file-name))
+                              (expand-file-name  "~/"))))))))
 
 (define-key! help-map
   "h" #'helpful-at-point)
@@ -220,7 +226,7 @@
 (after! cider
   (map! :leader
         (:prefix-map ("p" . "project")
-        :desc "sesman" "S" sesman-map)))
+         :desc "sesman" "S" sesman-map)))
 
 (use-package! clj-refactor
   :hook '(clojure-mode . clj-refactor-mode)
@@ -300,6 +306,7 @@
 
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
+(add-to-list 'auto-mode-alist '("\\.lua-format?\\'" . yaml-mode))
 
 (after! flycheck
   (add-to-list 'flycheck-checkers 'javascript-jshint))
@@ -310,6 +317,7 @@
       (setq uim-default-im-engine "anthy"))
 
 (after! counsel
+  (setq counsel-find-file-ignore-regexp "")
   (define-key!
     [remap +ivy/compile]         #'compile
     [remap +ivy/project-compile] #'projectile-compile-project))
@@ -349,12 +357,14 @@
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
           "l" #'open-nefia-locale-search
-          "r" #'open-nefia-require-this-file
-          "t" #'open-nefia-insert-template
+          "r" #'open-nefia-require-file
+          "R" #'open-nefia-require-this-file
           "p" #'open-nefia-start-repl
           "c" #'open-nefia-start-game
           "h" #'open-nefia-run-headlessly
-          "t" #'open-nefia-run-tests
+          (:prefix ("t" . "test")
+           "a" #'open-nefia-run-tests
+           "t" #'open-nefia-run-tests-this-file)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
@@ -365,7 +375,7 @@
 
   (require 'open-nefia-context)
   (after! open-nefia-context
-    (add-hook 'lua-mode-hook 'open-nefia-context-mode nil)
+    ;;(add-hook 'lua-mode-hook 'open-nefia-context-mode nil)
     (map! :localleader
           :map lua-mode-map
           (:prefix ("o" . "context")
@@ -398,8 +408,8 @@
 
 (after! lua-mode
   (setq compilation-error-regexp-alist (list (list lua-traceback-line-re 1 2)))
-  (add-to-list 'compilation-error-regexp-alist
-               '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2))
+  (add-to-list 'compilation-error-regexp-alist '("^\\(.+\\):\\([1-9][0-9]*\\):\\([1-9][0-9]*\\): " 1 2 3))
+  (add-to-list 'compilation-error-regexp-alist '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2))
   (evil-define-key 'normal compilation-mode-map (kbd "C-j") nil)
   (evil-define-key 'normal compilation-mode-map (kbd "C-k") nil)
   (add-hook 'lua-mode-hook (lambda ()
@@ -451,9 +461,12 @@
     (sp-local-pair "while" "end"
                    :when '(("SPC"))
                    :unless '(sp-in-comment-p sp-in-string-p)
-                   :post-handlers '(sp-lua-post-keyword-insert))))
-(set-company-backend! 'lua-mode '())
-(require 'smartparens-lua)
+                   :post-handlers '(sp-lua-post-keyword-insert)))
+  (set-company-backend! 'lua-mode '())
+  (require 'smartparens-lua)
+  (set-file-template! "^[A-Z].*\\.lua$" :trigger "__lua")
+  (set-file-template! "^mod\\.lua$" :trigger "__mod")
+  )
 
 (after! highlight-numbers
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
@@ -467,9 +480,7 @@
  ;; If there is more than one, they won't work right.
  '(safe-local-variable-values
    (quote
-    ((Coding . utf-8)
-     (projectile-project-compilation-cmd . "wxLua src/main.lua")
-     (projectile-project-run-cmd . "OpenNefia")
+    ((projectile-project-run-cmd . "OpenNefia")
      (projectile-project-compilation-cmd . "OpenNefia")))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
@@ -506,8 +517,8 @@
 (add-hook 'term-exec-hook #'ruin/kill-term-buffer-on-exit)
 
 (set-popup-rules!
-    '(("^\\*ansi-term"
-       :vslot -7 :side bottom :size 0.3 :select t :quit nil :ttl 0)))
+  '(("^\\*ansi-term"
+     :vslot -7 :side bottom :size 0.3 :select t :quit nil :ttl 0)))
 
 (defun ruin/popup-term ()
   (interactive)
@@ -550,13 +561,39 @@
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
     (message path-with-line-number)))
 
+(require 'url)
+(defun ruin/download-file (arg &optional url download-dir download-name)
+  (interactive "P")
+  (let ((url (or url
+                 (read-string "Enter download URL: ")))
+        (download-dir (or download-dir
+                 (read-directory-name "Destination: " nil nil nil))))
+    (let ((download-buffer (save-excursion (url-retrieve-synchronously url))))
+      (unless (file-directory-p download-dir)
+        (make-directory download-dir t))
+      (with-current-buffer download-buffer
+        ;; we may have to trim the http response
+        (goto-char (point-min))
+        (re-search-forward "^$" nil 'move)
+        (forward-char)
+        (delete-region (point-min) (point))
+        (save-window-excursion
+          (write-file (concat download-dir
+                              (or download-name
+                                  (car (last (split-string url "/" t))))))))
+      (when arg (display-buffer download-buffer)))))
+
+(require 'format-all)
+
 (map! :leader
       :desc "Popup terminal" "\"" #'ruin/popup-term
       (:prefix-map ("p" . "project")
-        :desc "Compile project" "c" #'projectile-compile-project)
+       :desc "Compile project" "c" #'projectile-compile-project)
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
        :desc "Build regexp" "x" #'re-builder)
+      (:prefix-map ("b" . "buffer")
+       :desc "Format all" "f" #'format-all-buffer)
       (:prefix-map ("y" . "yank")
        :desc "Yank line and file" "p" #'ruin/copy-current-line-position-to-clipboard
        :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2)
@@ -564,7 +601,8 @@
        :desc "Find file from URL" "w" #'ruin/view-url
        :desc "Find build" "b" #'ruin/find-build
        :desc "Rename file and buffer" "R" #'ruin/rename-file-and-buffer
-       :desc "Move buffer file" "M" #'ruin/move-buffer-file)
+       :desc "Move buffer file" "M" #'ruin/move-buffer-file
+       :desc "Download file" "o" #'ruin/download-file)
       (:prefix-map ("s" . "search")
        :desc "Search project (EX)" "P" #'+default/search-project-for-symbol-at-point))
 
@@ -586,3 +624,17 @@
 
 (after! migemo
   (setq migemo-isearch-enable-p nil))
+
+                                        ; (advice-add 'eval-last-sexp :after #'save-buffer)
+                                        ; (advice-add 'eval-defun :after #'save-buffer)
+                                        ; (advice-add 'eval-buffer :after #'save-buffer)
+
+(require 'teal-mode)
+(after! teal-mode
+  )
+
+(require 'flycheck-tl)
+(after! flycheck-tl
+  (flycheck-tl-setup)
+  (setq flycheck-lua-tl-include '("types/luafilesystem" "types" "types/luasocket")
+        flycheck-lua-tl-load "main"))
