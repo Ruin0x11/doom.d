@@ -69,3 +69,7 @@
 (package! arduino-mode)
 
 (package! sed-mode)
+
+(package! kurecolor)
+
+(package! buffer-move)

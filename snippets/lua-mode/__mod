@@ -1,5 +1,8 @@
 # -*- mode: snippet -*-
+# name: mod manifest
 # group: file templates
+# key: trigger-key
+# condition: t
 # --
 
 return {

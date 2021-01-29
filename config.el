@@ -22,6 +22,7 @@
 (setq doom-font (font-spec :family "Kochi Gothic" :size 12))
 
 (defun ruin/init-cjk-font ()
+  (interactive)
   (dolist (charset '(kana han symbol cjk-misc bopomofo))
     (set-fontset-font (frame-parameter nil 'font) charset doom-font)))
 
@@ -236,9 +237,9 @@
   (setq magit-clone-set-remote.pushDefault t
         magit-remote-add-set-remote.pushDefault t
         magit-commit-ask-to-stage nil
-        magit-no-confirm '(stage-all-changes)))
+        magit-no-confirm '(stage-all-changes)
+        git-commit-summary-max-length 72)) ; GitHub max length
 
-(map! :leader "co" #'recompile)
 (define-key!
   "<f7>" #'previous-error-no-select
   "<f8>" #'next-error-no-select
@@ -307,6 +308,8 @@
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
 (add-to-list 'auto-mode-alist '("\\.lua-format?\\'" . yaml-mode))
+
+(setq js-indent-level 2)
 
 (after! flycheck
   (add-to-list 'flycheck-checkers 'javascript-jshint))
@@ -386,7 +389,8 @@
   (map! :localleader
         :map emacs-lisp-mode-map
         (:prefix ("e" . "eval")
-         "s" #'eval-last-sexp)))
+                 "s" #'eval-last-sexp
+                 "b" #'eval-buffer)))
 
 (defun ruin/yank-path-of-buffer-file (&optional arg file)
   (interactive "P")
@@ -561,6 +565,30 @@
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
     (message path-with-line-number)))
 
+(defun ruin/string-of-line-at-number (line)
+  (save-excursion
+    (goto-char (point-min))
+    (forward-line (1- line))
+    (buffer-substring-no-properties (point-at-bol) (point-at-eol))))
+
+(defun ruin/copy-current-region-positions ()
+  "Copy current line in file to clipboard as '</path/to/file>:<line-number>'."
+  (interactive)
+  (when (not (region-active-p))
+    (set-mark (point)))
+  (let* ((path (file-relative-name (buffer-file-name) (ruin/parent-dir (projectile-project-root))))
+         (bor-line (line-number-at-pos (region-beginning)))
+         (eor-line (max bor-line (1- (line-number-at-pos (region-end)))))
+         (bor-string (ruin/string-of-line-at-number bor-line))
+         (eor-string (ruin/string-of-line-at-number eor-line))
+         (path-with-line-number
+          (format "-- >>>>>>>> %s:%d %s ...\n-- <<<<<<<< %s:%d %s ..."
+                  path bor-line (substring bor-string 0 (min (length bor-string) 50))
+                  path eor-line (substring eor-string 0 (min (length eor-string) 50)))))
+    (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
+    (message path-with-line-number)
+    (deactivate-mark)))
+
 (require 'url)
 (defun ruin/download-file (arg &optional url download-dir download-name)
   (interactive "P")
@@ -596,7 +624,8 @@
        :desc "Format all" "f" #'format-all-buffer)
       (:prefix-map ("y" . "yank")
        :desc "Yank line and file" "p" #'ruin/copy-current-line-position-to-clipboard
-       :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2)
+       :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2
+       :desc "Yank region lines" "y" #'ruin/copy-current-region-positions)
       (:prefix-map ("f" . "file")
        :desc "Find file from URL" "w" #'ruin/view-url
        :desc "Find build" "b" #'ruin/find-build
@@ -619,7 +648,10 @@
   (set-face-foreground 'hi-green "#444"))
 
 (after! markdown-mode
-  (add-hook 'markdown-mode-hook (lambda () (toggle-truncate-lines t) (font-lock-mode -1))))
+  (add-hook 'markdown-mode-hook (lambda ()
+                                  (toggle-truncate-lines t)
+                                  ; (font-lock-mode -1)
+                                  )))
 (put 'narrow-to-region 'disabled nil)
 
 (after! migemo
@@ -638,3 +670,21 @@
   (flycheck-tl-setup)
   (setq flycheck-lua-tl-include '("types/luafilesystem" "types" "types/luasocket")
         flycheck-lua-tl-load "main"))
+
+(after! undo-tree
+  (global-undo-tree-mode t)
+  (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
+
+(load-theme 'doom-tomorrow-night t)
+
+(map! :leader
+      (:prefix ("r" . "replace")
+       "r" #'projectile-replace
+       "R" #'projectile-replace-regexp
+       "s" #'ruin/refactor-name))
+
+(defun ruin/pop-compilation-buffer ()
+  (interactive)
+  (let ((buf (save-window-excursion (compilation-goto-in-progress-buffer) (current-buffer))))
+    (when (buffer-live-p buf)
+      (+popup-buffer buf))))
