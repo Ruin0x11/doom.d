@@ -56,8 +56,6 @@
 
 (package! rainbow-mode)
 
-(package! forge)
-
 (package! csv-mode)
 
 (package! string-inflection)

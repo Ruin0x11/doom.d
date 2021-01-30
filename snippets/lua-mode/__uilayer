@@ -1,0 +1,56 @@
+# -*- mode: snippet -*-
+# name: ui layer definition
+# group: file templates
+# key: trigger-key
+# condition: t             
+# --
+
+local IInput = require("api.gui.IInput")
+local IUiElement = require("api.gui.IUiElement")
+local InputHandler = require("api.gui.InputHandler")
+local UiTheme = require("api.gui.UiTheme")
+
+local `(setq-local module (let ((fn (file-name-nondirectory
+                            (file-name-sans-extension
+                              (or (buffer-file-name)
+                              (buffer-name (current-buffer)))))))
+                  (replace-regexp-in-string "_" "" fn t t)))` = class.class("`module`", IUiLayer)
+
+`module`:delegate("input", IInput)
+
+function `module`:init()
+   $0
+   self.input = InputHandler:new()
+   self.input:forward_to(self.list)
+   self.input:bind_keys(self:make_keymap())
+end
+
+function `module`:make_keymap()
+   return {
+      escape = function() self.canceled = true end,
+      cancel = function() self.canceled = true end
+   }
+end
+
+function `module`:on_query()
+   self.canceled = false
+end
+
+function `module`:relayout(x, y, width, height)
+   self.x = x
+   self.y = y
+   self.width = width
+   self.height = height
+   self.t = UiTheme.load(self)
+end
+
+function `module`:draw()
+end
+
+function `module`:update(dt)
+   if self.canceled then
+      return nil, "canceled"
+   end
+end
+
+return `module`

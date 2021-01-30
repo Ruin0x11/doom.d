@@ -302,9 +302,6 @@
              (set-buffer-modified-p nil)
              t))))
 
-(use-package! forge
-  :after magit)
-
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
 (add-to-list 'auto-mode-alist '("\\.lua-format?\\'" . yaml-mode))

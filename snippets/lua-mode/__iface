@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: interface definition
+# group: file templates
+# key: trigger-key
+# condition: t
+# --
+
+local `(setq-local module (let ((fn (file-name-nondirectory
+                            (file-name-sans-extension
+                              (or (buffer-file-name)
+                              (buffer-name (current-buffer)))))))
+                  (replace-regexp-in-string "_" "" fn t t)))` = class.interface("`module`", {
+                                                                                    $0
+                                                                                })
+
+return `module`
