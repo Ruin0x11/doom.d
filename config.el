@@ -22,8 +22,11 @@
 (setq doom-font (font-spec :family "Kochi Gothic" :size 12))
 
 (defun ruin/init-cjk-font ()
-  (dolist (charset '(kana han symbol cjk-misc bopomofo))
-    (set-fontset-font (frame-parameter nil 'font) charset doom-font)))
+  (when (window-system) 
+(dolist (charset '(kana han symbol cjk-misc bopomofo))
+    (set-fontset-font (frame-parameter nil 'font) charset doom-font))
+    )
+  )
 
 (if (daemonp)
     (add-hook 'after-make-frame-functions
@@ -123,8 +126,7 @@
       (subst-char-in-string ?/ ?\\ path)))
   (add-hook 'lua-mode-hook (lambda ()
                              (setq flycheck-locate-config-file-functions
-                                   '(ruin/flycheck-locate-config-file-ancestor-directories))))
-  (add-hook 'lua-mode-hook #'lsp!))
+                                   '(ruin/flycheck-locate-config-file-ancestor-directories)))))
 
 (defun ruin/set-major-mode-from-name (name)
   (let ((case-insensitive-p (file-name-case-insensitive-p name)))
@@ -339,17 +341,19 @@
        :desc "Kill compilation" "k" #'kill-compilation
        :desc "Compile project" "p" #'projectile-compile-project))
 
-(add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))
+(add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs"))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
     (setq lua-indent-level 3)
+    (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
           "l" #'open-nefia-locale-search
-          "r" #'open-nefia-require-this-file
+          "r" #'open-nefia-require-file
+          "R" #'open-nefia-require-this-file
           "t" #'open-nefia-insert-template
           "p" #'open-nefia-start-repl
           "c" #'open-nefia-start-game
@@ -365,7 +369,7 @@
 
   (require 'open-nefia-context)
   (after! open-nefia-context
-    (add-hook 'lua-mode-hook 'open-nefia-context-mode nil)
+    ;(add-hook 'lua-mode-hook 'open-nefia-context-mode nil)
     (map! :localleader
           :map lua-mode-map
           (:prefix ("o" . "context")
@@ -459,24 +463,12 @@
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
 
 (after! hl-line
-  (global-hl-line-mode 1))
-(custom-set-variables
- ;; custom-set-variables was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- '(safe-local-variable-values
-   (quote
-    ((Coding . utf-8)
-     (projectile-project-compilation-cmd . "wxLua src/main.lua")
-     (projectile-project-run-cmd . "OpenNefia")
-     (projectile-project-compilation-cmd . "OpenNefia")))))
-(custom-set-faces
- ;; custom-set-faces was added by Custom.
- ;; If you edit it by hand, you could mess it up, so be careful.
- ;; Your init file should contain only one such instance.
- ;; If there is more than one, they won't work right.
- )
+  (if window-system
+      (global-hl-line-mode 1)
+    (progn
+      (remove-hook 'text-mode-hook 'hl-line-mode)
+      (remove-hook 'conf-mode-hook 'hl-line-mode)
+      (remove-hook 'prog-mode-hook 'hl-line-mode))))
 
 (global-set-key (kbd "C-x C-s") 'sort-lines)
 (global-set-key (kbd "C-x |") 'align-regexp)
@@ -554,6 +546,8 @@
       :desc "Popup terminal" "\"" #'ruin/popup-term
       (:prefix-map ("p" . "project")
         :desc "Compile project" "c" #'projectile-compile-project)
+      (:prefix-map ("y" . "yank")
+        :desc "Yank kill ring" "y" #'counsel-yank-pop)
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
        :desc "Build regexp" "x" #'re-builder)
@@ -586,3 +580,34 @@
 
 (after! migemo
   (setq migemo-isearch-enable-p nil))
+
+(after! company
+  (setq evil-complete-next-func 'company-select-next)
+  (setq evil-complete-previous-func 'company-select-previous)
+  (setq company-backends '(company-files company-keywords company-capf)))
+
+(defun eval-and-replace ()
+  "Replace the preceding sexp with its value."
+  (interactive)
+  (backward-kill-sexp)
+  (condition-case nil
+      (prin1 (eval (read (current-kill 0)))
+             (current-buffer))
+    (error (message "Invalid expression")
+           (insert (current-kill 0)))))
+
+(let ((opam-share (ignore-errors (car (process-lines "opam" "config" "var" "share")))))
+  (when (and opam-share (file-directory-p opam-share))
+    ;; Register Merlin
+    (add-to-list 'load-path (expand-file-name "emacs/site-lisp" opam-share))
+    (autoload 'merlin-mode "merlin" nil t nil)
+    ;; Automatically start it in OCaml buffers
+    (add-hook 'tuareg-mode-hook 'merlin-mode t)
+    (add-hook 'caml-mode-hook 'merlin-mode t)
+    ;; Use opam switch to lookup ocamlmerlin binary
+    (setq merlin-command 'opam)
+    (merlin-eldoc-disable)
+    (remove-hook 'merlin-mode-hook 'merlin-eldoc-setup)))
+
+(setq js-indent-level 2)
+(setq-default evil-shift-width 2)
