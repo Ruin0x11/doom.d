@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: mod manifest
+# group: file templates
+# key: trigger-key
+# condition: t
+# --
+
+return {
+   id = "$1",
+   version = "0.1.0",
+   dependencies = {
+      elona = ">= 0"
+   }
+}$0
