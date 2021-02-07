@@ -19,7 +19,7 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Kochi Gothic" :size 12))
+(setq doom-font (font-spec :family "Kochi Gothic" :size 14))
 
 (defun ruin/init-cjk-font ()
   (interactive)
@@ -479,8 +479,8 @@
     (progn
       (remove-hook 'text-mode-hook 'hl-line-mode)
       (remove-hook 'conf-mode-hook 'hl-line-mode)
-      (remove-hook 'prog-mode-hook 'hl-line-mode))))
-(global-hl-line-mode 1))
+      (remove-hook 'prog-mode-hook 'hl-line-mode)
+      (global-hl-line-mode -1))))
 
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
@@ -491,6 +491,7 @@
    (quote
     ((projectile-project-run-cmd . "OpenNefia")
      (projectile-project-compilation-cmd . "OpenNefia")))))
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -725,3 +726,58 @@
   (let ((buf (save-window-excursion (compilation-goto-in-progress-buffer) (current-buffer))))
     (when (buffer-live-p buf)
       (+popup-buffer buf))))
+
+(require 'lispy)
+(defun ruin/lispy-read-expr-at-point ()
+  (let* ((bnd (lispy--bounds-list))
+          (str (lispy--string-dwim bnd)))
+    (lispy--read str)))
+
+(defun ruin/lispy-oneline-in-sexp ()
+  (interactive)
+  (save-excursion
+    (let ((len (length (ruin/lispy-read-expr-at-point))))
+      (down-list)
+      (lispy-down 1)
+      (dotimes (i len)
+        (lispy-oneline)
+        (lispy-down 1)))))
+
+(defun ruin/format-adieu ()
+  (interactive)
+  (save-excursion
+    (beginning-of-buffer)
+    (lispy-forward 1)
+    (lispy-backward 1)
+    (indent-pp-sexp t)
+    (down-list)
+    (ruin/lispy-oneline-in-sexp)
+    (lispy-down 1)
+    (let ((len (length (ruin/lispy-read-expr-at-point))))
+      (down-list)
+      (lispy-down 1)
+      (dotimes (i len)
+        (down-list)
+        (lispy-down 1)
+        (ruin/lispy-oneline-in-sexp)
+        (backward-up-list)
+        (lispy-down 1)))))
+
+(defun duplicate-line()
+  (interactive)
+  (move-beginning-of-line 1)
+  (kill-line)
+  (yank)
+  (open-line 1)
+  (next-line 1)
+  (yank))
+
+(defun ruin/translate-line ()
+  (interactive)
+  (beginning-of-line)
+  (duplicate-line)
+  (previous-line)
+  (comment-line 1)
+  (evil-find-char 1 (string-to-char "\"")))
+
+(define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)

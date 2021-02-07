@@ -71,3 +71,5 @@
 (package! kurecolor)
 
 (package! buffer-move)
+
+(package! lispy)
