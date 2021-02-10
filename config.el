@@ -19,7 +19,7 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Kochi Gothic" :size 12))
+(setq doom-font (font-spec :family "MS Gothic" :size 14))
 
 (defun ruin/init-cjk-font ()
   (dolist (charset '(kana han symbol cjk-misc bopomofo))
@@ -104,19 +104,6 @@
         lsp-lua-sumneko-workspace-max-preload 100000
         lsp-lua-sumneko-runtime-version "LuaJIT"))
 
-(after! ivy
-  (when IS-WINDOWS
-    (setq counsel-rg-base-command "rg -M 240 --with-filename --no-heading --line-number --color never %s --path-separator // .")
-    (setq ivy-height 40)))
-
-(after! projectile
-  (when (executable-find doom-projectile-fd-binary)
-    (setq projectile-generic-command
-          (concat (format "%s . -0 -H -E .git --color=never --type file --type symlink --follow"
-                          doom-projectile-fd-binary)
-                  (if IS-WINDOWS " --path-separator=//")))))
-
-
 (after! lua-mode
   (defun ruin/flycheck-locate-config-file-ancestor-directories (file _checker)
     (when-let ((path (flycheck-locate-config-file-ancestor-directories file _checker)))
@@ -124,7 +111,8 @@
   (add-hook 'lua-mode-hook (lambda ()
                              (setq flycheck-locate-config-file-functions
                                    '(ruin/flycheck-locate-config-file-ancestor-directories))))
-  (add-hook 'lua-mode-hook #'lsp!))
+  ;(add-hook 'lua-mode-hook #'lsp!)
+  )
 
 (defun ruin/set-major-mode-from-name (name)
   (let ((case-insensitive-p (file-name-case-insensitive-p name)))
@@ -295,9 +283,6 @@
              (set-buffer-modified-p nil)
              t))))
 
-(use-package! forge
-  :after magit)
-
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
 
@@ -339,7 +324,7 @@
        :desc "Kill compilation" "k" #'kill-compilation
        :desc "Compile project" "p" #'projectile-compile-project))
 
-(add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))
+(add-to-list 'load-path (expand-file-name "F:/build/opennefia/editor/emacs"))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
@@ -586,3 +571,11 @@
 
 (after! migemo
   (setq migemo-isearch-enable-p nil))
+
+(when (eq window-system 'w32)
+  (setq tramp-default-method "plink"))
+
+(setq undo-fu-session-compression nil)
+
+(setq plantuml-default-exec-mode 'jar
+      plantuml-java-args (list "-D 'java.awt.headless=true'" "-jar"))

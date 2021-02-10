@@ -56,10 +56,12 @@
 
 (package! rainbow-mode)
 
-(package! forge)
+; (package! forge)
 
 (package! csv-mode)
 
 (package! string-inflection)
 
 (package! dtrt-indent :disable t)
+
+(package! powershell)
