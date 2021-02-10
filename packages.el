@@ -56,12 +56,20 @@
 
 (package! rainbow-mode)
 
-; (package! forge)
-
 (package! csv-mode)
 
 (package! string-inflection)
 
 (package! dtrt-indent :disable t)
 
-(package! powershell)
+(package! clang-format)
+
+(package! arduino-mode)
+
+(package! sed-mode)
+
+(package! kurecolor)
+
+(package! buffer-move)
+
+(package! lispy)

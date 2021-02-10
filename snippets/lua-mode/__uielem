@@ -1,0 +1,33 @@
+# -*- mode: snippet -*-
+# name: ui element definition
+# group: file templates
+# key: trigger-key
+# condition: t   
+# --
+
+local IUiElement = require("api.gui.IUiElement")
+
+local `(setq-local module (let ((fn (file-name-nondirectory
+                            (file-name-sans-extension
+                              (or (buffer-file-name)
+                              (buffer-name (current-buffer)))))))
+                  (replace-regexp-in-string "_" "" fn t t)))` = class.class("`module`", IUiElement)
+
+function `module`:init()
+   $0
+end
+
+function `module`:relayout(x, y, width, height)
+   self.x = x
+   self.y = y
+   self.width = width
+   self.height = height
+end
+
+function `module`:draw()
+end
+
+function `module`:update(dt)
+end
+
+return `module`

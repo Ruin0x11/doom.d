@@ -1,0 +1,17 @@
+# -*- mode: snippet -*-
+# name: module definition
+# group: file templates
+# key: trigger-key
+# condition: t
+# --
+local `(setq-local module (let ((fn (file-name-nondirectory
+                            (file-name-sans-extension
+                              (or (buffer-file-name)
+                              (buffer-name (current-buffer)))))))
+                  (replace-regexp-in-string "_" "" fn t t)))` = {}
+
+function `module`.$1($2)
+   $0
+end
+
+return `module`

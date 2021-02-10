@@ -70,6 +70,10 @@
   "*Non-nil means TAB in HSP mode should always reindent the current line,
 regardless of where in the line point is when the TAB command is used.")
 
+(defcustom hsp-indent-level 4
+  "The tab width to use when indenting."
+  :type 'integer)
+
 (defvar hsp-mode-abbrev-table nil
   "Abbrev table used while in HSP mode.")
 (define-abbrev-table 'hsp-mode-abbrev-table ())
@@ -404,7 +408,13 @@ repeatedly until you are satisfied with the kind of comment."
       (skip-chars-forward "\t"))
     (hsp-indent-line)))
 
-(defun hsp-indent-line ()
+(defsubst hsp--paren-level ()
+  (car (syntax-ppss)))
+
+(defsubst hsp--in-string-or-comment-p ()
+  (nth 8 (syntax-ppss)))
+
+(defun hsp--indent-one-line ()
   "Indent current line as HSP code.
 Return the amount the indentation changed by."
   (save-excursion
@@ -421,6 +431,53 @@ Return the amount the indentation changed by."
       ())
      ((save-excursion (looking-at "[^\t]"))
       (tab-to-tab-stop)))))
+
+(defun hsp--block-indentation ()
+  (let ((curline (line-number-at-pos)))
+    (save-excursion
+      (condition-case nil
+          (progn
+            (backward-up-list)
+            (unless (= curline (line-number-at-pos))
+              (current-indentation)))
+        (scan-error
+         (save-excursion
+           (beginning-of-line)
+           (if (looking-at "^\\*") (- hsp-indent-level) (- hsp-indent-level hsp-indent-level)))
+         )))))
+
+(defun hsp--previous-indentation ()
+  (save-excursion
+    (forward-line -1)
+    (let (finish)
+      (while (not finish)
+        (cond ((bobp) (setq finish t))
+              ((hsp--in-string-or-comment-p) (forward-line -1))
+              (t
+               (let ((line (buffer-substring-no-properties
+                            (line-beginning-position) (line-end-position))))
+                 (if (not (string-match-p "\\`\\s-*\\'" line))
+                     (setq finish t)
+                   (forward-line -1))))))
+      (current-indentation))))
+
+(defun hsp-indent-line ()
+  "Indent current line as HSP."
+  (interactive)
+  (let* ((curpoint (point))
+         (pos (- (point-max) curpoint)))
+    (back-to-indentation)
+    (if (hsp--in-string-or-comment-p)
+        (goto-char curpoint)
+      (let ((block-indentation (hsp--block-indentation)))
+        (delete-region (line-beginning-position) (point))
+        (if block-indentation
+            (if (looking-at "[]}]")
+                (indent-to block-indentation)
+              (indent-to (+ block-indentation hsp-indent-level)))
+          (indent-to (hsp--previous-indentation)))
+        (when (> (- (point-max) pos) (point))
+          (goto-char (- (point-max) pos)))))))
 
 (defun hsp-newline ()
   "Insert LFD + fill-prefix, to bring us back to code-indent level."
