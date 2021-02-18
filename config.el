@@ -260,7 +260,7 @@
                '("color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*)"
                  (0 (rainbow-colorize-rgb))))
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
-               '("set_color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*)"
+               '("set_color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\(,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\)?)"
                  (0 (rainbow-colorize-rgb))))
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("{\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*}"
@@ -467,7 +467,14 @@
   (require 'smartparens-lua)
   (set-file-template! "^[A-Z].*\\.lua$" :trigger "__lua")
   (set-file-template! "^mod\\.lua$" :trigger "__mod")
-  )
+
+  (add-to-list 'lua-font-lock-keywords
+               '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
+                 1 (unless (eq ?\( (char-after)) font-lock-type-face)) t)
+
+  (add-to-list 'lua-font-lock-keywords
+               '("\\_<\\([A-Z][A-Z_]+\\)"
+                 1 (unless (eq ?\( (char-after)) font-lock-constant-face) t) t))
 
 (after! highlight-numbers
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
@@ -645,10 +652,7 @@
   (set-face-foreground 'hi-green "#444"))
 
 (after! markdown-mode
-  (add-hook 'markdown-mode-hook (lambda ()
-                                  (toggle-truncate-lines t)
-                                  ; (font-lock-mode -1)
-                                  )))
+  (add-hook 'markdown-mode-hook #'flyspell-mode))
 (put 'narrow-to-region 'disabled nil)
 
 (after! migemo
