@@ -19,12 +19,13 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Kochi Gothic" :size 12))
+(setq doom-font (font-spec :family "Kochi Gothic" :size 14))
 
 (defun ruin/init-cjk-font ()
   (interactive)
-  (dolist (charset '(kana han symbol cjk-misc bopomofo))
-    (set-fontset-font (frame-parameter nil 'font) charset doom-font)))
+  (when (window-system) 
+    (dolist (charset '(kana han symbol cjk-misc bopomofo))
+      (set-fontset-font (frame-parameter nil 'font) charset doom-font))))
 
 (if (daemonp)
     (add-hook 'after-make-frame-functions
@@ -129,9 +130,7 @@
       (subst-char-in-string ?/ ?\\ path)))
   (add-hook 'lua-mode-hook (lambda ()
                              (setq flycheck-locate-config-file-functions
-                                   '(ruin/flycheck-locate-config-file-ancestor-directories))))
-  ;(add-hook 'lua-mode-hook #'lsp!)
-  (setq lua-default-application "luajit"))
+                                   '(ruin/flycheck-locate-config-file-ancestor-directories)))))
 
 (defun ruin/set-major-mode-from-name (name)
   (let ((case-insensitive-p (file-name-case-insensitive-p name)))
@@ -347,11 +346,12 @@
        :desc "Kill compilation" "k" #'kill-compilation
        :desc "Compile project" "p" #'projectile-compile-project))
 
-(add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))
+(add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs"))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
     (setq lua-indent-level 3)
+    (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
@@ -359,7 +359,8 @@
           "l" #'open-nefia-locale-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
-          "p" #'open-nefia-start-repl
+          "t" #'open-nefia-insert-template
+          >>>>>>> origin/master
           "c" #'open-nefia-start-game
           "h" #'open-nefia-run-headlessly
           (:prefix ("t" . "test")
@@ -386,8 +387,8 @@
   (map! :localleader
         :map emacs-lisp-mode-map
         (:prefix ("e" . "eval")
-                 "s" #'eval-last-sexp
-                 "b" #'eval-buffer)))
+         "s" #'eval-last-sexp
+         "b" #'eval-buffer)))
 
 (defun ruin/yank-path-of-buffer-file (&optional arg file)
   (interactive "P")
@@ -480,7 +481,14 @@
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
 
 (after! hl-line
-  (global-hl-line-mode 1))
+  (if window-system
+      (global-hl-line-mode 1)
+    (progn
+      (remove-hook 'text-mode-hook 'hl-line-mode)
+      (remove-hook 'conf-mode-hook 'hl-line-mode)
+      (remove-hook 'prog-mode-hook 'hl-line-mode)
+      (global-hl-line-mode -1))))
+
 (custom-set-variables
  ;; custom-set-variables was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -490,6 +498,7 @@
    (quote
     ((projectile-project-run-cmd . "OpenNefia")
      (projectile-project-compilation-cmd . "OpenNefia")))))
+
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -599,7 +608,7 @@
   (let ((url (or url
                  (read-string "Enter download URL: ")))
         (download-dir (or download-dir
-                 (read-directory-name "Destination: " nil nil nil))))
+                          (read-directory-name "Destination: " nil nil nil))))
     (let ((download-buffer (save-excursion (url-retrieve-synchronously url))))
       (unless (file-directory-p download-dir)
         (make-directory download-dir t))
@@ -621,6 +630,8 @@
       :desc "Popup terminal" "\"" #'ruin/popup-term
       (:prefix-map ("p" . "project")
        :desc "Compile project" "c" #'projectile-compile-project)
+      (:prefix-map ("y" . "yank")
+       :desc "Yank kill ring" "y" #'counsel-yank-pop)
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
        :desc "Build regexp" "x" #'re-builder)
@@ -658,6 +669,36 @@
 (after! migemo
   (setq migemo-isearch-enable-p nil))
 
+(after! company
+  (setq evil-complete-next-func 'company-select-next)
+  (setq evil-complete-previous-func 'company-select-previous)
+  (setq company-backends '(company-files company-keywords company-capf)))
+
+(defun eval-and-replace ()
+  "Replace the preceding sexp with its value."
+  (interactive)
+  (backward-kill-sexp)
+  (condition-case nil
+      (prin1 (eval (read (current-kill 0)))
+             (current-buffer))
+    (error (message "Invalid expression")
+           (insert (current-kill 0)))))
+
+(let ((opam-share (ignore-errors (car (process-lines "opam" "config" "var" "share")))))
+  (when (and opam-share (file-directory-p opam-share))
+    ;; Register Merlin
+    (add-to-list 'load-path (expand-file-name "emacs/site-lisp" opam-share))
+    (autoload 'merlin-mode "merlin" nil t nil)
+    ;; Automatically start it in OCaml buffers
+    (add-hook 'tuareg-mode-hook 'merlin-mode t)
+    (add-hook 'caml-mode-hook 'merlin-mode t)
+    ;; Use opam switch to lookup ocamlmerlin binary
+    (setq merlin-command 'opam)
+    (merlin-eldoc-disable)
+    (remove-hook 'merlin-mode-hook 'merlin-eldoc-setup)))
+
+(setq js-indent-level 2)
+(setq-default evil-shift-width 2)
                                         ; (advice-add 'eval-last-sexp :after #'save-buffer)
                                         ; (advice-add 'eval-defun :after #'save-buffer)
                                         ; (advice-add 'eval-buffer :after #'save-buffer)
@@ -689,3 +730,58 @@
   (let ((buf (save-window-excursion (compilation-goto-in-progress-buffer) (current-buffer))))
     (when (buffer-live-p buf)
       (+popup-buffer buf))))
+
+(require 'lispy)
+(defun ruin/lispy-read-expr-at-point ()
+  (let* ((bnd (lispy--bounds-list))
+          (str (lispy--string-dwim bnd)))
+    (lispy--read str)))
+
+(defun ruin/lispy-oneline-in-sexp ()
+  (interactive)
+  (save-excursion
+    (let ((len (length (ruin/lispy-read-expr-at-point))))
+      (down-list)
+      (lispy-down 1)
+      (dotimes (i len)
+        (lispy-oneline)
+        (lispy-down 1)))))
+
+(defun ruin/format-adieu ()
+  (interactive)
+  (save-excursion
+    (beginning-of-buffer)
+    (lispy-forward 1)
+    (lispy-backward 1)
+    (indent-pp-sexp t)
+    (down-list)
+    (ruin/lispy-oneline-in-sexp)
+    (lispy-down 1)
+    (let ((len (length (ruin/lispy-read-expr-at-point))))
+      (down-list)
+      (lispy-down 1)
+      (dotimes (i len)
+        (down-list)
+        (lispy-down 1)
+        (ruin/lispy-oneline-in-sexp)
+        (backward-up-list)
+        (lispy-down 1)))))
+
+(defun duplicate-line()
+  (interactive)
+  (move-beginning-of-line 1)
+  (kill-line)
+  (yank)
+  (open-line 1)
+  (next-line 1)
+  (yank))
+
+(defun ruin/translate-line ()
+  (interactive)
+  (beginning-of-line)
+  (duplicate-line)
+  (previous-line)
+  (comment-line 1)
+  (evil-find-char 1 (string-to-char "\"")))
+
+(define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
