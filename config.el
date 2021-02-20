@@ -338,7 +338,9 @@
 
 (if IS-WINDOWS
     (add-to-list 'load-path (expand-file-name "C:/users/kuzuki/build/elona-next/editor/emacs"))
-  (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs")))
+  (progn
+    (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs"))
+    (add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
