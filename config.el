@@ -471,11 +471,15 @@
 
   (add-to-list 'lua-font-lock-keywords
                '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
-                 1 (unless (eq ?\( (char-after)) font-lock-type-face)) t)
+                 1 (unless (or (eq ?\[ (char-after)) (eq ?\( (char-after))) font-lock-type-face)) t)
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
+  ;;                1 (unless (or (eq (face-at-point font-lock-string-face)) (eq ?\( (char-after))) font-lock-constant-face) append) t)
 
-  (add-to-list 'lua-font-lock-keywords
-               '("\\_<\\([A-Z][A-Z_]+\\)"
-                 1 (unless (eq ?\( (char-after)) font-lock-constant-face) t) t))
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\_<\\([A-Z][A-Z_]+\\)"
+  ;;                1 (unless (eq ?\( (char-after)) font-lock-constant-face prepend)) t)
+  )
 
 (after! highlight-numbers
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
@@ -693,9 +697,7 @@
     (add-hook 'tuareg-mode-hook 'merlin-mode t)
     (add-hook 'caml-mode-hook 'merlin-mode t)
     ;; Use opam switch to lookup ocamlmerlin binary
-    (setq merlin-command 'opam)
-    (merlin-eldoc-disable)
-    (remove-hook 'merlin-mode-hook 'merlin-eldoc-setup)))
+    (setq merlin-command 'opam)))
 
 (setq js-indent-level 2)
 (setq-default evil-shift-width 2)
