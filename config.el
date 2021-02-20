@@ -112,9 +112,7 @@
         lsp-lua-sumneko-runtime-version "LuaJIT"))
 
 (after! ivy
-  (when IS-WINDOWS
-    (setq counsel-rg-base-command "rg -M 240 --with-filename --no-heading --line-number --color never %s --path-separator // .")
-    (setq ivy-height 40)))
+  (setq ivy-height 40))
 
 (after! projectile
   (when (executable-find doom-projectile-fd-binary)
@@ -218,15 +216,6 @@
          ;; "x" #'hydra-lispy-x/body
          ;; "p" #'lispy-clone
          )))
-
-(use-package! cider
-  :hook '((clojure-mode lua-mode) . cider-mode)
-  :load-path "~/build/cider")
-
-(after! cider
-  (map! :leader
-        (:prefix-map ("p" . "project")
-         :desc "sesman" "S" sesman-map)))
 
 (use-package! clj-refactor
   :hook '(clojure-mode . clj-refactor-mode)
@@ -346,7 +335,10 @@
        :desc "Kill compilation" "k" #'kill-compilation
        :desc "Compile project" "p" #'projectile-compile-project))
 
-(add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs"))
+
+(if IS-WINDOWS
+    (add-to-list 'load-path (expand-file-name "C:/users/kuzuki/build/elona-next/editor/emacs"))
+  (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs")))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
@@ -359,8 +351,6 @@
           "l" #'open-nefia-locale-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
-          "t" #'open-nefia-insert-template
-          >>>>>>> origin/master
           "c" #'open-nefia-start-game
           "h" #'open-nefia-run-headlessly
           (:prefix ("t" . "test")
