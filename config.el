@@ -238,7 +238,8 @@
 (add-hook 'hsp-mode-hook (lambda ()
                            (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
                            (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
-                           (define-key hsp-mode-map (kbd "C-j") nil)))
+                           (define-key hsp-mode-map (kbd "C-j") nil)
+                           (rainbow-mode 1)))
 
 (after! rainbow-mode
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
@@ -357,7 +358,8 @@
           "h" #'open-nefia-run-headlessly
           (:prefix ("t" . "test")
            "a" #'open-nefia-run-tests
-           "t" #'open-nefia-run-tests-this-file)
+           "t" #'open-nefia-run-tests-this-file
+           "r" #'open-nefia-run-previous-tests)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
@@ -407,8 +409,9 @@
   (evil-define-key 'normal compilation-mode-map (kbd "C-j") nil)
   (evil-define-key 'normal compilation-mode-map (kbd "C-k") nil)
   (add-hook 'lua-mode-hook (lambda ()
-                             (set-company-backend! 'lua-mode '())
-                             (company-mode 0)
+                             (set-lookup-handlers! 'lua-mode nil)
+                             (set-company-backend! 'lua-mode '(company-etags company-dabbrev-code))
+                             (company-mode 1)
                              (setq-local rainbow-html-colors t)
                              (lua-block-mode t)
                              (rainbow-mode 1))
@@ -580,6 +583,9 @@
     (forward-line (1- line))
     (buffer-substring-no-properties (point-at-bol) (point-at-eol))))
 
+(defun ruin/copy-line-escape (s)
+  (replace-regexp-in-string "%" "%%" s))
+
 (defun ruin/copy-current-region-positions ()
   "Copy current line in file to clipboard as '</path/to/file>:<line-number>'."
   (interactive)
@@ -592,8 +598,8 @@
          (eor-string (ruin/string-of-line-at-number eor-line))
          (path-with-line-number
           (format "-- >>>>>>>> %s:%d %s ...\n-- <<<<<<<< %s:%d %s ..."
-                  path bor-line (substring bor-string 0 (min (length bor-string) 50))
-                  path eor-line (substring eor-string 0 (min (length eor-string) 50)))))
+                  path bor-line (ruin/copy-line-escape (substring bor-string 0 (min (length bor-string) 50)))
+                  path eor-line (ruin/copy-line-escape (substring eor-string 0 (min (length eor-string) 50))))))
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
     (message path-with-line-number)
     (deactivate-mark)))
@@ -779,3 +785,9 @@
   (evil-find-char 1 (string-to-char "\"")))
 
 (define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
+
+(desktop-save-mode 1)
+(setq desktop-save t)
+
+(after! evil-snipe
+  (evil-snipe-override-mode -1))
