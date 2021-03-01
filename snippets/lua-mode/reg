@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-     
+# name: reg
+# key: trigger-key
+# mode: lua-mode
+# condition: t         
+# --
+
+local function $1(${2:receiver}, params, result)$0
+    return result
+end
+Event.register("$3", "$4", $1)

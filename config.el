@@ -127,6 +127,7 @@
     (when-let ((path (flycheck-locate-config-file-ancestor-directories file _checker)))
       (subst-char-in-string ?/ ?\\ path)))
   (add-hook 'lua-mode-hook (lambda ()
+                             (which-function-mode 1)
                              (setq flycheck-locate-config-file-functions
                                    '(ruin/flycheck-locate-config-file-ancestor-directories)))))
 
@@ -239,7 +240,8 @@
                            (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
                            (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
                            (define-key hsp-mode-map (kbd "C-j") nil)
-                           (rainbow-mode 1)))
+                           (rainbow-mode 1)
+                           (flycheck-mode -1)))
 
 (after! rainbow-mode
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
@@ -334,8 +336,8 @@
        :desc "Recompile" "r" #'recompile
        :desc "Compile" "c" #'compile
        :desc "Kill compilation" "k" #'kill-compilation
-       :desc "Compile project" "p" #'projectile-compile-project))
-
+       :desc "Compile project" "p" #'projectile-compile-project
+       :desc "Pop compilation buffer" "b" #'ruin/pop-compilation-buffer))
 
 (if IS-WINDOWS
     (add-to-list 'load-path (expand-file-name "C:/users/kuzuki/build/elona-next/editor/emacs"))
@@ -359,6 +361,7 @@
           (:prefix ("t" . "test")
            "a" #'open-nefia-run-tests
            "t" #'open-nefia-run-tests-this-file
+           "f" #'open-nefia-run-test-at-point
            "r" #'open-nefia-run-previous-tests)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
@@ -788,6 +791,8 @@
 
 (desktop-save-mode 1)
 (setq desktop-save t)
+(setq debug-on-error nil)
+(setq debug-on-quit nil)
 
 (after! evil-snipe
   (evil-snipe-override-mode -1))
