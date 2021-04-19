@@ -37,7 +37,7 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one)
+(setq doom-theme 'doom-tomorrow-night)
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
@@ -95,7 +95,12 @@
         :n "C-k" #'evil-window-up
         :n "C-h" #'evil-window-left
         :n "C-l" #'evil-window-right)
-  (require 'evil-little-word))
+  (require 'evil-little-word)
+
+  (defun ruin/highlight-evil-search ()
+    (interactive)
+    (hi-lock-set-pattern (evil-get-register ?/) 'hi-yellow)
+    (evil-ex-nohighlight)))
 
 (after! evil-snipe
   (evil-snipe-mode -1))
@@ -272,9 +277,14 @@
       (kill-buffer new-name))
     (rename-buffer new-name)
     (when (file-exists-p filename)
+      (when (projectile-project-root)
+        (projectile-purge-file-from-cache
+         (file-relative-name filename (projectile-project-root))))
       (rename-file filename new-name 1))
     (set-visited-file-name new-name)
-    (set-buffer-modified-p nil)))
+    (set-buffer-modified-p nil)
+    (when (projectile-project-root)
+      (projectile-cache-current-file))))
 
 (defun ruin/move-buffer-file (dir)
   "Moves both current buffer and file it's visiting to DIR."
@@ -287,15 +297,24 @@
          (newname (concat dir "/" name)))
     (if (not filename)
         (message "Buffer '%s' is not visiting a file!" name)
-      (progn (copy-file filename newname 1)
-             (delete-file filename)
-             (set-visited-file-name newname)
-             (set-buffer-modified-p nil)
-             t))))
+      (progn
+        (when (projectile-project-root)
+          (projectile-purge-file-from-cache
+           (file-relative-name filename (projectile-project-root))))
+        (copy-file filename newname 1)
+        (delete-file filename)
+        (set-visited-file-name newname)
+        (set-buffer-modified-p nil)
+        (when (projectile-project-root)
+          (projectile-cache-current-file))
+        t))))
 
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
 (add-to-list 'auto-mode-alist '("\\.lua-format?\\'" . yaml-mode))
+
+(add-to-list 'auto-mode-alist '("\\.luacheckrc?\\'" . lua-mode))
+(add-to-list 'auto-mode-alist '("\\.rockspec?\\'" . lua-mode))
 
 (setq js-indent-level 2)
 
@@ -378,7 +397,9 @@
           :map lua-mode-map
           (:prefix ("o" . "context")
            "g" #'open-nefia-context-goto
-           "s" #'open-nefia-context-show))))
+           "s" #'open-nefia-context-show)))
+
+  (require 'open-nefia-yeek))
 
 (after! elisp-mode
   (map! :localleader
@@ -409,6 +430,7 @@
   (setq compilation-error-regexp-alist (list (list lua-traceback-line-re 1 2)))
   (add-to-list 'compilation-error-regexp-alist '("^\\(.+\\):\\([1-9][0-9]*\\):\\([1-9][0-9]*\\): " 1 2 3))
   (add-to-list 'compilation-error-regexp-alist '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2))
+  ;; (add-to-list 'compilation-error-regexp-alist 'gnu)
   (evil-define-key 'normal compilation-mode-map (kbd "C-j") nil)
   (evil-define-key 'normal compilation-mode-map (kbd "C-k") nil)
   (add-hook 'lua-mode-hook (lambda ()
@@ -470,6 +492,10 @@
   (add-to-list 'lua-font-lock-keywords
                '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
                  1 (unless (or (eq ?\[ (char-after)) (eq ?\( (char-after))) font-lock-type-face)) t)
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\(\\(?:\\w\\|\\s_\\)+\\)\\(<.+>\\)?\s*("
+  ;;                (1 font-lock-function-name-face)) t)
+
   ;; (add-to-list 'lua-font-lock-keywords
   ;;              '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
   ;;                1 (unless (or (eq (face-at-point font-lock-string-face)) (eq ?\( (char-after))) font-lock-constant-face) append) t)
@@ -639,6 +665,7 @@
        :desc "Yank kill ring" "y" #'counsel-yank-pop)
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
+       :desc "Undo Tree" "u" #'undo-tree-visualize
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("b" . "buffer")
        :desc "Format all" "f" #'format-all-buffer)
@@ -720,12 +747,76 @@
   (global-undo-tree-mode t)
   (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
 
-(load-theme 'doom-tomorrow-night t)
+(defun ruin/projectile-replace (ext &optional arg)
+  "Replace literal string in project using non-regexp `tags-query-replace'.
+
+With a prefix argument ARG prompts you for a directory on which
+to run the replacement."
+  (interactive "sExtension: \nP")
+  (let* ((directory (if arg
+                        (file-name-as-directory
+                         (read-directory-name "Replace in directory: "))
+                      (projectile-ensure-project (projectile-project-root))))
+         (old-text (read-string
+                    (projectile-prepend-project-name "Replace: ")
+                    (projectile-symbol-or-selection-at-point)))
+         (new-text (read-string
+                    (projectile-prepend-project-name
+                     (format "Replace %s with: " old-text))))
+         (regexp (format ".*\\.%s$" ext))
+         (files (cl-remove-if
+                 (lambda (f) (not (string-match-p regexp f)))
+                 (projectile-files-with-string old-text directory))))
+    (if (fboundp #'fileloop-continue)
+        ;; Emacs 27+
+        (progn (fileloop-initialize-replace old-text new-text files 'default)
+               (fileloop-continue))
+      ;; Emacs 25 and 26
+      ;;
+      ;; Adapted from `tags-query-replace' for literal strings (not regexp)
+      (setq tags-loop-scan `(let ,(unless (equal old-text (downcase old-text))
+                                    '((case-fold-search nil)))
+                              (if (search-forward ',old-text nil t)
+                                  ;; When we find a match, move back to
+                                  ;; the beginning of it so
+                                  ;; perform-replace will see it.
+                                  (goto-char (match-beginning 0))))
+            tags-loop-operate `(perform-replace ',old-text ',new-text t nil nil
+                                                nil multi-query-replace-map))
+      (tags-loop-continue (or (cons 'list files) t)))))
+
+(defun ruin/projectile-replace-regexp (ext &optional arg)
+  "Replace a regexp in the project using `tags-query-replace'.
+
+With a prefix argument ARG prompts you for a directory on which
+to run the replacement."
+  (interactive "sExtension: \nP")
+  (let* ((directory (if arg
+                        (file-name-as-directory
+                         (read-directory-name "Replace regexp in directory: "))
+                      (projectile-ensure-project (projectile-project-root))))
+         (old-text (read-string
+                    (projectile-prepend-project-name "Replace regexp: ")
+                    (projectile-symbol-or-selection-at-point)))
+         (new-text (read-string
+                    (projectile-prepend-project-name
+                     (format "Replace regexp %s with: " old-text))))
+         (regexp (format ".*\\.%s$" ext))
+         (files
+          ;; We have to reject directories as a workaround to work with git submodules.
+          ;;
+          ;; We can't narrow the list of files with
+          ;; `projectile-files-with-string' because those regexp tools
+          ;; don't support Emacs regular expressions.
+          (cl-remove-if
+           (lambda (f) (or (file-directory-p f) (not (string-match-p regexp f))))
+           (mapcar #'projectile-expand-root (projectile-dir-files directory)))))
+    (tags-query-replace old-text new-text nil (cons 'list files))))
 
 (map! :leader
       (:prefix ("r" . "replace")
-       "r" #'projectile-replace
-       "R" #'projectile-replace-regexp
+       "r" #'ruin/projectile-replace
+       "R" #'ruin/projectile-replace-regexp
        "s" #'ruin/refactor-name))
 
 (defun ruin/pop-compilation-buffer ()
@@ -793,6 +884,71 @@
 (setq desktop-save t)
 (setq debug-on-error nil)
 (setq debug-on-quit nil)
+(setq kill-ring-max 200)
+(global-undo-tree-mode 1)
+(add-hook 'find-file-hook #'undo-tree-mode)
 
 (after! evil-snipe
-  (evil-snipe-override-mode -1))
+  (setq evil-snipe-override-mode nil))
+
+(require 'semgrep)
+
+(defun ruin/reverse-at-point (&optional beg end)
+  "Replace a string or region at point by result of ‘reverse’.
+
+Works at any string detected at position, unless
+optional BEG as start and
+optional END as end are given as arguments or
+an active region is set deliberately"
+  (interactive "*")
+  (let* ((pps (parse-partial-sexp (point-min) (point)))
+         ;; (save-excursion (cadr (ar-beginning-of-string-atpt)))
+         (beg (cond (beg)
+                    ((use-region-p)
+                     (region-beginning))
+                    ((and (nth 8 pps)(nth 3 pps))
+                     (goto-char (nth 8 pps))
+                     (point))))
+         ;; (copy-marker (cdr (ar-end-of-string-atpt)))
+         (end (cond (end)
+                    ((use-region-p)
+                     (copy-marker (region-end)))
+                    ((and (nth 8 pps)(nth 3 pps))
+                     (forward-sexp)
+                     (copy-marker (point)))))
+         (erg (buffer-substring beg end)))
+    (when (and beg end)
+      (delete-region beg end)
+      (insert (reverse erg)))))
+
+(after! rustic-flycheck
+  (setq rustic-flycheck-clippy-params "--message-format=json"))
+
+(defun setup-tide-mode ()
+  (interactive)
+  (tide-setup)
+  (flycheck-mode +1)
+  (setq flycheck-check-syntax-automatically '(save mode-enabled))
+  (eldoc-mode +1)
+  (tide-hl-identifier-mode +1)
+  (set-company-backend! 'typescript-mode '(company-tide))
+  (setq company-backends '(company-tide))
+  ;; company is an optional dependency. You have to
+  ;; install it separately via package-install
+  ;; `M-x package-install [ret] company`
+  (company-mode +1))
+
+;; aligns annotation to the right hand side
+(setq company-tooltip-align-annotations t)
+
+;; formats the buffer before saving
+(add-hook 'before-save-hook 'tide-format-before-save)
+
+(add-hook 'typescript-mode-hook #'setup-tide-mode)
+(map! :localleader
+      :map typescript-mode-map
+      "i" #'tide-fix)
+
+(after! browse-url
+  (setq browse-url-firefox-program "firefox-developer-edition"
+        browse-url-browser-function #'browse-url-firefox))
