@@ -277,9 +277,9 @@
       (kill-buffer new-name))
     (rename-buffer new-name)
     (when (file-exists-p filename)
-      (when (projectile-project-root)
-        (projectile-purge-file-from-cache
-         (file-relative-name filename (projectile-project-root))))
+      (let ((cached (file-relative-name filename (projectile-project-root))))
+        (when (projectile-file-cached-p cached (projectile-project-root))
+          (projectile-purge-file-from-cache cached)))
       (rename-file filename new-name 1))
     (set-visited-file-name new-name)
     (set-buffer-modified-p nil)
@@ -298,9 +298,9 @@
     (if (not filename)
         (message "Buffer '%s' is not visiting a file!" name)
       (progn
-        (when (projectile-project-root)
-          (projectile-purge-file-from-cache
-           (file-relative-name filename (projectile-project-root))))
+        (let ((cached (file-relative-name filename (projectile-project-root))))
+          (when (projectile-file-cached-p cached (projectile-project-root))
+            (projectile-purge-file-from-cache cached)))
         (copy-file filename newname 1)
         (delete-file filename)
         (set-visited-file-name newname)
@@ -373,6 +373,7 @@
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
           "l" #'open-nefia-locale-search
+          "L" #'open-nefia-locale-key-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
           "c" #'open-nefia-start-game
@@ -666,6 +667,7 @@
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
        :desc "Undo Tree" "u" #'undo-tree-visualize
+       :desc "Browse URL" "w" #'browse-url-at-point
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("b" . "buffer")
        :desc "Format all" "f" #'format-all-buffer)
