@@ -75,3 +75,7 @@
 (package! lispy)
 
 (package! fennel-mode)
+
+(package! cmake-mode)
+
+(package! ccls)

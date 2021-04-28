@@ -954,3 +954,12 @@ an active region is set deliberately"
 (after! browse-url
   (setq browse-url-firefox-program "firefox-developer-edition"
         browse-url-browser-function #'browse-url-firefox))
+
+(after! ccls
+  (require 'ccls)
+  (setq ccls-sem-highlight-method 'font-lock)
+  (add-hook 'c-mode-hook 'lsp)
+  (add-hook 'c++-mode-hook (lambda () (require 'ccls) (lsp-deferred)))
+  (evil-define-key 'normal c++-mode-map (kbd "C-]") #'lsp-find-definition)
+  (evil-define-key 'normal c++-mode-map (kbd "C-t") #'pop-tag-mark)
+  (evil-define-key 'normal c++-mode-map (kbd "C-M-.") #'lsp-ui-find-workspace-symbol))
