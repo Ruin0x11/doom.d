@@ -71,7 +71,7 @@
 
 (after! recentf
   (recentf-load-list)
-  (run-at-time nil (* 120 60) #'recentf-save-list)) ; every 120 mins
+  (run-at-time nil (* 60) #'recentf-save-list))
 
 (defun reload-site-lisp ()
   "Puts site-lisp and its subdirectories into load-path."
@@ -367,7 +367,7 @@
   (require 'open-nefia)
   (after! open-nefia
     (setq lua-indent-level 3)
-    (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
+    ;; (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
@@ -745,9 +745,9 @@
   (setq flycheck-lua-tl-include '("types/luafilesystem" "types" "types/luasocket")
         flycheck-lua-tl-load "main"))
 
-(after! undo-tree
-  (global-undo-tree-mode t)
-  (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
+;; (after! undo-tree
+;;   (global-undo-tree-mode t)
+;;   (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
 
 (defun ruin/projectile-replace (ext &optional arg)
   "Replace literal string in project using non-regexp `tags-query-replace'.
@@ -887,8 +887,6 @@ to run the replacement."
 (setq debug-on-error nil)
 (setq debug-on-quit nil)
 (setq kill-ring-max 200)
-(global-undo-tree-mode 1)
-(add-hook 'find-file-hook #'undo-tree-mode)
 
 (after! evil-snipe
   (setq evil-snipe-override-mode nil))
@@ -957,9 +955,18 @@ an active region is set deliberately"
 
 (after! ccls
   (require 'ccls)
-  (setq ccls-sem-highlight-method 'font-lock)
+  ;; (setq ccls-sem-highlight-method 'font-lock)
   (add-hook 'c-mode-hook 'lsp)
   (add-hook 'c++-mode-hook (lambda () (require 'ccls) (lsp-deferred)))
   (evil-define-key 'normal c++-mode-map (kbd "C-]") #'lsp-find-definition)
   (evil-define-key 'normal c++-mode-map (kbd "C-t") #'pop-tag-mark)
   (evil-define-key 'normal c++-mode-map (kbd "C-M-.") #'lsp-ui-find-workspace-symbol))
+
+(defun process-kill-without-query (process &optional flag)
+  (set-process-query-on-exit-flag process nil)
+  t)
+
+(defun ruin/toggle-inhibit-modification-hooks ()
+  (interactive)
+  (setq inhibit-modification-hooks (not inhibit-modification-hooks))
+  (message "Inhibit: %s" inhibit-modification-hooks))
