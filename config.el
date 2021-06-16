@@ -114,7 +114,14 @@
         lsp-clients-emmy-lua-jar-path (expand-file-name (locate-user-emacs-file "EmmyLua-LS-all.jar"))
         lsp-lua-sumneko-workspace-preload-file-size 100000
         lsp-lua-sumneko-workspace-max-preload 100000
-        lsp-lua-sumneko-runtime-version "LuaJIT"))
+        lsp-lua-sumneko-runtime-version "LuaJIT")
+  (define-key! lsp-mode-map
+    "C-]" #'lsp-find-definition)
+  (define-key! csharp-mode-map
+    "C-]" #'lsp-find-definition))
+
+(global-set-key [remap evil-jump-to-tag] #'lsp-find-definition)
+(global-set-key [remap find-tag]         #'lsp-find-definition)
 
 (after! ivy
   (setq ivy-height 40))
@@ -133,6 +140,7 @@
       (subst-char-in-string ?/ ?\\ path)))
   (add-hook 'lua-mode-hook (lambda ()
                              (which-function-mode 1)
+                             (highlight-numbers-mode 1)
                              (setq flycheck-locate-config-file-functions
                                    '(ruin/flycheck-locate-config-file-ancestor-directories)))))
 
@@ -203,6 +211,8 @@
   "h" #'helpful-at-point)
 
 (after! smartparens
+  (smartparens-global-mode 1)
+  (show-smartparens-global-mode 1)
   (map! :map lisp-mode-map
         :nv ">" #'sp-slurp-hybrid-sexp
         :nv "<" #'sp-forward-barf-sexp)
@@ -231,7 +241,7 @@
   (setq magit-clone-set-remote.pushDefault t
         magit-remote-add-set-remote.pushDefault t
         magit-commit-ask-to-stage nil
-        magit-no-confirm '(stage-all-changes)
+        magit-no-confirm '(stage-all-changes set-and-push)
         git-commit-summary-max-length 72)) ; GitHub max length
 
 (define-key!
@@ -316,7 +326,7 @@
 (add-to-list 'auto-mode-alist '("\\.luacheckrc?\\'" . lua-mode))
 (add-to-list 'auto-mode-alist '("\\.rockspec?\\'" . lua-mode))
 
-(setq js-indent-level 2)
+(setq js-indent-level 4)
 
 (after! flycheck
   (add-to-list 'flycheck-checkers 'javascript-jshint))
@@ -689,6 +699,7 @@
 
 (define-key global-map [remap compile] nil)
 (define-key global-map [remap projectile-compile-project] nil)
+(define-key global-map [remap projectile-find-tag] nil)
 
 (after! hi-lock
   (set-face-foreground 'hi-blue "#444")
@@ -880,10 +891,12 @@ to run the replacement."
   (comment-line 1)
   (evil-find-char 1 (string-to-char "\"")))
 
-(define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
+;; (define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
 
 (desktop-save-mode 1)
-(setq desktop-save t)
+(setq desktop-save t
+      desktop-load-locked-desktop nil
+      desktop-dirname (locate-user-emacs-file "."))
 (setq debug-on-error nil)
 (setq debug-on-quit nil)
 (setq kill-ring-max 200)
@@ -970,3 +983,18 @@ an active region is set deliberately"
   (interactive)
   (setq inhibit-modification-hooks (not inhibit-modification-hooks))
   (message "Inhibit: %s" inhibit-modification-hooks))
+
+(setq enable-local-variables t)
+
+(after! sql-indent
+  (add-hook 'sql-mode-hook #'sqlind-minor-mode)
+  (setq sqlind-basic-offset 4))
+
+(after! stylus-mode
+  (add-hook 'stylus-mode-hook #'rainbow-mode))
+
+(after! dhall-mode
+  (setq dhall-use-header-line nil))
+
+(after! alchemist
+  (add-hook 'alchemist-iex-mode-hook (lambda () (add-to-list 'company-backends 'alchemist-company))))
