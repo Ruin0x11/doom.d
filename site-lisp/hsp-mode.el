@@ -204,6 +204,8 @@ tags table for BUF and its (recursively) included tags tables."
 (defconst hsp-font-lock-keywords
   `((";.*$"
      0 font-lock-comment-face)
+    ("//.*$"
+     0 font-lock-comment-face)
     (,(concat
        (regexp-opt
         '("if"

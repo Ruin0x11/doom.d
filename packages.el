@@ -75,3 +75,19 @@
 (package! lispy)
 
 (package! powershell)
+
+(package! fennel-mode)
+
+(package! cmake-mode)
+
+(package! ccls)
+
+(package! stylus-mode)
+
+(package! sql-indent)
+
+(package! omnisharp :disable t)
+
+(package! dhall-mode)
+
+(package! evil-snipe :disable t)

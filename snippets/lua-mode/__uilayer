@@ -21,7 +21,7 @@ local `(setq-local module (let ((fn (file-name-nondirectory
 function `module`:init()
    $0
    self.input = InputHandler:new()
-   self.input:forward_to(self.list)
+   -- self.input:forward_to(self.list)
    self.input:bind_keys(self:make_keymap())
 end
 

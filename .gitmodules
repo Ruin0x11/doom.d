@@ -1,0 +1,3 @@
+[submodule "site-lisp/semgrep.el"]
+	path = site-lisp/semgrep.el
+	url = git@github.com:Ruin0x11/semgrep.el.git

@@ -37,7 +37,7 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one)
+(setq doom-theme 'doom-tomorrow-night)
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
@@ -71,7 +71,7 @@
 
 (after! recentf
   (recentf-load-list)
-  (run-at-time nil (* 120 60) #'recentf-save-list)) ; every 120 mins
+  (run-at-time nil (* 60) #'recentf-save-list))
 
 (defun reload-site-lisp ()
   "Puts site-lisp and its subdirectories into load-path."
@@ -95,7 +95,12 @@
         :n "C-k" #'evil-window-up
         :n "C-h" #'evil-window-left
         :n "C-l" #'evil-window-right)
-  (require 'evil-little-word))
+  (require 'evil-little-word)
+
+  (defun ruin/highlight-evil-search ()
+    (interactive)
+    (hi-lock-set-pattern (evil-get-register ?/) 'hi-yellow)
+    (evil-ex-nohighlight)))
 
 (after! evil-snipe
   (evil-snipe-mode -1))
@@ -109,13 +114,32 @@
         lsp-clients-emmy-lua-jar-path (expand-file-name (locate-user-emacs-file "EmmyLua-LS-all.jar"))
         lsp-lua-sumneko-workspace-preload-file-size 100000
         lsp-lua-sumneko-workspace-max-preload 100000
-        lsp-lua-sumneko-runtime-version "LuaJIT"))
+        lsp-lua-sumneko-runtime-version "LuaJIT")
+  (define-key! lsp-mode-map
+    "C-]" #'lsp-find-definition)
+  (define-key! csharp-mode-map
+    "C-]" #'lsp-find-definition))
+
+(global-set-key [remap evil-jump-to-tag] #'lsp-find-definition)
+(global-set-key [remap find-tag]         #'lsp-find-definition)
+
+(after! ivy
+  (setq ivy-height 40))
+
+(after! projectile
+  (when (executable-find doom-projectile-fd-binary)
+    (setq projectile-generic-command
+          (concat (format "%s . -0 -H -E .git --color=never --type file --type symlink --follow"
+                          doom-projectile-fd-binary)
+                  (if IS-WINDOWS " --path-separator=//")))))
 
 (after! lua-mode
   (defun ruin/flycheck-locate-config-file-ancestor-directories (file _checker)
     (when-let ((path (flycheck-locate-config-file-ancestor-directories file _checker)))
       (subst-char-in-string ?/ ?\\ path)))
   (add-hook 'lua-mode-hook (lambda ()
+                             (which-function-mode 1)
+                             (highlight-numbers-mode 1)
                              (setq flycheck-locate-config-file-functions
                                    '(ruin/flycheck-locate-config-file-ancestor-directories)))))
 
@@ -186,6 +210,8 @@
   "h" #'helpful-at-point)
 
 (after! smartparens
+  (smartparens-global-mode 1)
+  (show-smartparens-global-mode 1)
   (map! :map lisp-mode-map
         :nv ">" #'sp-slurp-hybrid-sexp
         :nv "<" #'sp-forward-barf-sexp)
@@ -206,15 +232,6 @@
          ;; "p" #'lispy-clone
          )))
 
-(use-package! cider
-  :hook '((clojure-mode lua-mode) . cider-mode)
-  :load-path "~/build/cider")
-
-(after! cider
-  (map! :leader
-        (:prefix-map ("p" . "project")
-         :desc "sesman" "S" sesman-map)))
-
 (use-package! clj-refactor
   :hook '(clojure-mode . clj-refactor-mode)
   :load-path "~/build/clj-refactor.el")
@@ -223,7 +240,7 @@
   (setq magit-clone-set-remote.pushDefault t
         magit-remote-add-set-remote.pushDefault t
         magit-commit-ask-to-stage nil
-        magit-no-confirm '(stage-all-changes)
+        magit-no-confirm '(stage-all-changes set-and-push)
         git-commit-summary-max-length 72)) ; GitHub max length
 
 (define-key!
@@ -236,7 +253,9 @@
 (add-hook 'hsp-mode-hook (lambda ()
                            (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
                            (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
-                           (define-key hsp-mode-map (kbd "C-j") nil)))
+                           (define-key hsp-mode-map (kbd "C-j") nil)
+                           (rainbow-mode 1)
+                           (flycheck-mode -1)))
 
 (after! rainbow-mode
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
@@ -246,7 +265,7 @@
                '("color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*)"
                  (0 (rainbow-colorize-rgb))))
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
-               '("set_color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*)"
+               '("set_color(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\(,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\)?)"
                  (0 (rainbow-colorize-rgb))))
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("{\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*}"
@@ -267,9 +286,14 @@
       (kill-buffer new-name))
     (rename-buffer new-name)
     (when (file-exists-p filename)
+      (let ((cached (file-relative-name filename (projectile-project-root))))
+        (when (projectile-file-cached-p cached (projectile-project-root))
+          (projectile-purge-file-from-cache cached)))
       (rename-file filename new-name 1))
     (set-visited-file-name new-name)
-    (set-buffer-modified-p nil)))
+    (set-buffer-modified-p nil)
+    (when (projectile-project-root)
+      (projectile-cache-current-file))))
 
 (defun ruin/move-buffer-file (dir)
   "Moves both current buffer and file it's visiting to DIR."
@@ -282,17 +306,26 @@
          (newname (concat dir "/" name)))
     (if (not filename)
         (message "Buffer '%s' is not visiting a file!" name)
-      (progn (copy-file filename newname 1)
-             (delete-file filename)
-             (set-visited-file-name newname)
-             (set-buffer-modified-p nil)
-             t))))
+      (progn
+        (let ((cached (file-relative-name filename (projectile-project-root))))
+          (when (projectile-file-cached-p cached (projectile-project-root))
+            (projectile-purge-file-from-cache cached)))
+        (copy-file filename newname 1)
+        (delete-file filename)
+        (set-visited-file-name newname)
+        (set-buffer-modified-p nil)
+        (when (projectile-project-root)
+          (projectile-cache-current-file))
+        t))))
 
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
 (add-to-list 'auto-mode-alist '("\\.lua-format?\\'" . yaml-mode))
 
-(setq js-indent-level 2)
+(add-to-list 'auto-mode-alist '("\\.luacheckrc?\\'" . lua-mode))
+(add-to-list 'auto-mode-alist '("\\.rockspec?\\'" . lua-mode))
+
+(setq js-indent-level 4)
 
 (after! flycheck
   (add-to-list 'flycheck-checkers 'javascript-jshint))
@@ -331,24 +364,35 @@
        :desc "Recompile" "r" #'recompile
        :desc "Compile" "c" #'compile
        :desc "Kill compilation" "k" #'kill-compilation
-       :desc "Compile project" "p" #'projectile-compile-project))
+       :desc "Compile project" "p" #'projectile-compile-project
+       :desc "Pop compilation buffer" "b" #'ruin/pop-compilation-buffer))
 
 (add-to-list 'load-path (expand-file-name "F:/build/opennefia/editor/emacs"))
+(if IS-WINDOWS
+    (add-to-list 'load-path (expand-file-name "C:/users/kuzuki/build/elona-next/editor/emacs"))
+  (progn
+    (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs"))
+    (add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
     (setq lua-indent-level 3)
-    (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
+    ;; (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
           "l" #'open-nefia-locale-search
+          "L" #'open-nefia-locale-key-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
-          "t" #'open-nefia-insert-template
           "c" #'open-nefia-start-game
           "h" #'open-nefia-run-headlessly
+          (:prefix ("t" . "test")
+           "a" #'open-nefia-run-tests
+           "t" #'open-nefia-run-tests-this-file
+           "f" #'open-nefia-run-test-at-point
+           "r" #'open-nefia-run-previous-tests)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
@@ -364,7 +408,9 @@
           :map lua-mode-map
           (:prefix ("o" . "context")
            "g" #'open-nefia-context-goto
-           "s" #'open-nefia-context-show))))
+           "s" #'open-nefia-context-show)))
+
+  (require 'open-nefia-yeek))
 
 (after! elisp-mode
   (map! :localleader
@@ -395,11 +441,13 @@
   (setq compilation-error-regexp-alist (list (list lua-traceback-line-re 1 2)))
   (add-to-list 'compilation-error-regexp-alist '("^\\(.+\\):\\([1-9][0-9]*\\):\\([1-9][0-9]*\\): " 1 2 3))
   (add-to-list 'compilation-error-regexp-alist '(" in function <\\(.+\\):\\([1-9][0-9]+\\)>" 1 2))
+  ;; (add-to-list 'compilation-error-regexp-alist 'gnu)
   (evil-define-key 'normal compilation-mode-map (kbd "C-j") nil)
   (evil-define-key 'normal compilation-mode-map (kbd "C-k") nil)
   (add-hook 'lua-mode-hook (lambda ()
-                             (set-company-backend! 'lua-mode '())
-                             (company-mode 0)
+                             (set-lookup-handlers! 'lua-mode nil)
+                             (set-company-backend! 'lua-mode '(company-etags company-dabbrev-code))
+                             (company-mode 1)
                              (setq-local rainbow-html-colors t)
                              (lua-block-mode t)
                              (rainbow-mode 1))
@@ -451,6 +499,21 @@
   (require 'smartparens-lua)
   (set-file-template! "^[A-Z].*\\.lua$" :trigger "__lua")
   (set-file-template! "^mod\\.lua$" :trigger "__mod")
+
+  (add-to-list 'lua-font-lock-keywords
+               '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
+                 1 (unless (or (eq ?\[ (char-after)) (eq ?\( (char-after))) font-lock-type-face)) t)
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\(\\(?:\\w\\|\\s_\\)+\\)\\(<.+>\\)?\s*("
+  ;;                (1 font-lock-function-name-face)) t)
+
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
+  ;;                1 (unless (or (eq (face-at-point font-lock-string-face)) (eq ?\( (char-after))) font-lock-constant-face) append) t)
+
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\_<\\([A-Z][A-Z_]+\\)"
+  ;;                1 (unless (eq ?\( (char-after)) font-lock-constant-face prepend)) t)
   )
 
 (after! highlight-numbers
@@ -560,6 +623,9 @@
     (forward-line (1- line))
     (buffer-substring-no-properties (point-at-bol) (point-at-eol))))
 
+(defun ruin/copy-line-escape (s)
+  (replace-regexp-in-string "%" "%%" s))
+
 (defun ruin/copy-current-region-positions ()
   "Copy current line in file to clipboard as '</path/to/file>:<line-number>'."
   (interactive)
@@ -572,8 +638,8 @@
          (eor-string (ruin/string-of-line-at-number eor-line))
          (path-with-line-number
           (format "-- >>>>>>>> %s:%d %s ...\n-- <<<<<<<< %s:%d %s ..."
-                  path bor-line (substring bor-string 0 (min (length bor-string) 50))
-                  path eor-line (substring eor-string 0 (min (length eor-string) 50)))))
+                  path bor-line (ruin/copy-line-escape (substring bor-string 0 (min (length bor-string) 50)))
+                  path eor-line (ruin/copy-line-escape (substring eor-string 0 (min (length eor-string) 50))))))
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
     (message path-with-line-number)
     (deactivate-mark)))
@@ -610,6 +676,8 @@
        :desc "Yank kill ring" "y" #'counsel-yank-pop)
       (:prefix-map ("a" . "app")
        :desc "Calc" "c" #'calc
+       :desc "Undo Tree" "u" #'undo-tree-visualize
+       :desc "Browse URL" "w" #'browse-url-at-point
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("b" . "buffer")
        :desc "Format all" "f" #'format-all-buffer)
@@ -631,6 +699,7 @@
 
 (define-key global-map [remap compile] nil)
 (define-key global-map [remap projectile-compile-project] nil)
+(define-key global-map [remap projectile-find-tag] nil)
 
 (after! hi-lock
   (set-face-foreground 'hi-blue "#444")
@@ -639,10 +708,7 @@
   (set-face-foreground 'hi-green "#444"))
 
 (after! markdown-mode
-  (add-hook 'markdown-mode-hook (lambda ()
-                                  (toggle-truncate-lines t)
-                                        ; (font-lock-mode -1)
-                                  )))
+  (add-hook 'markdown-mode-hook #'flyspell-mode))
 (put 'narrow-to-region 'disabled nil)
 
 (after! migemo
@@ -680,9 +746,7 @@
     (add-hook 'tuareg-mode-hook 'merlin-mode t)
     (add-hook 'caml-mode-hook 'merlin-mode t)
     ;; Use opam switch to lookup ocamlmerlin binary
-    (setq merlin-command 'opam)
-    (merlin-eldoc-disable)
-    (remove-hook 'merlin-mode-hook 'merlin-eldoc-setup)))
+    (setq merlin-command 'opam)))
 
 (setq js-indent-level 2)
 (setq-default evil-shift-width 2)
@@ -696,14 +760,80 @@
   (setq flycheck-lua-tl-include '("types/luafilesystem" "types" "types/luasocket")
         flycheck-lua-tl-load "main"))
 
-(after! undo-tree
-  (global-undo-tree-mode t)
-  (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
+;; (after! undo-tree
+;;   (global-undo-tree-mode t)
+;;   (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
+
+(defun ruin/projectile-replace (ext &optional arg)
+  "Replace literal string in project using non-regexp `tags-query-replace'.
+
+With a prefix argument ARG prompts you for a directory on which
+to run the replacement."
+  (interactive "sExtension: \nP")
+  (let* ((directory (if arg
+                        (file-name-as-directory
+                         (read-directory-name "Replace in directory: "))
+                      (projectile-ensure-project (projectile-project-root))))
+         (old-text (read-string
+                    (projectile-prepend-project-name "Replace: ")
+                    (projectile-symbol-or-selection-at-point)))
+         (new-text (read-string
+                    (projectile-prepend-project-name
+                     (format "Replace %s with: " old-text))))
+         (regexp (format ".*\\.%s$" ext))
+         (files (cl-remove-if
+                 (lambda (f) (not (string-match-p regexp f)))
+                 (projectile-files-with-string old-text directory))))
+    (if (fboundp #'fileloop-continue)
+        ;; Emacs 27+
+        (progn (fileloop-initialize-replace old-text new-text files 'default)
+               (fileloop-continue))
+      ;; Emacs 25 and 26
+      ;;
+      ;; Adapted from `tags-query-replace' for literal strings (not regexp)
+      (setq tags-loop-scan `(let ,(unless (equal old-text (downcase old-text))
+                                    '((case-fold-search nil)))
+                              (if (search-forward ',old-text nil t)
+                                  ;; When we find a match, move back to
+                                  ;; the beginning of it so
+                                  ;; perform-replace will see it.
+                                  (goto-char (match-beginning 0))))
+            tags-loop-operate `(perform-replace ',old-text ',new-text t nil nil
+                                                nil multi-query-replace-map))
+      (tags-loop-continue (or (cons 'list files) t)))))
+
+(defun ruin/projectile-replace-regexp (ext &optional arg)
+  "Replace a regexp in the project using `tags-query-replace'.
+
+With a prefix argument ARG prompts you for a directory on which
+to run the replacement."
+  (interactive "sExtension: \nP")
+  (let* ((directory (if arg
+                        (file-name-as-directory
+                         (read-directory-name "Replace regexp in directory: "))
+                      (projectile-ensure-project (projectile-project-root))))
+         (old-text (read-string
+                    (projectile-prepend-project-name "Replace regexp: ")
+                    (projectile-symbol-or-selection-at-point)))
+         (new-text (read-string
+                    (projectile-prepend-project-name
+                     (format "Replace regexp %s with: " old-text))))
+         (regexp (format ".*\\.%s$" ext))
+         (files
+          ;; We have to reject directories as a workaround to work with git submodules.
+          ;;
+          ;; We can't narrow the list of files with
+          ;; `projectile-files-with-string' because those regexp tools
+          ;; don't support Emacs regular expressions.
+          (cl-remove-if
+           (lambda (f) (or (file-directory-p f) (not (string-match-p regexp f))))
+           (mapcar #'projectile-expand-root (projectile-dir-files directory)))))
+    (tags-query-replace old-text new-text nil (cons 'list files))))
 
 (map! :leader
       (:prefix ("r" . "replace")
-       "r" #'projectile-replace
-       "R" #'projectile-replace-regexp
+       "r" #'ruin/projectile-replace
+       "R" #'ruin/projectile-replace-regexp
        "s" #'ruin/refactor-name))
 
 (defun ruin/pop-compilation-buffer ()
@@ -765,7 +895,7 @@
   (comment-line 1)
   (evil-find-char 1 (string-to-char "\"")))
 
-(define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
+;; (define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
 
 (defun delete-region-writeable (begin end)
   "Removes the read-only text property from the marked region."
@@ -812,3 +942,109 @@
     output))
 
 (add-hook 'comint-preoutput-filter-functions #'comint-filter-long-lines)
+
+(desktop-save-mode 1)
+(setq desktop-save t
+      desktop-load-locked-desktop nil
+      desktop-dirname (locate-user-emacs-file "."))
+(setq debug-on-error nil)
+(setq debug-on-quit nil)
+(setq kill-ring-max 200)
+
+(after! evil-snipe
+  (setq evil-snipe-override-mode nil))
+
+(require 'semgrep)
+
+(defun ruin/reverse-at-point (&optional beg end)
+  "Replace a string or region at point by result of ‘reverse’.
+
+Works at any string detected at position, unless
+optional BEG as start and
+optional END as end are given as arguments or
+an active region is set deliberately"
+  (interactive "*")
+  (let* ((pps (parse-partial-sexp (point-min) (point)))
+         ;; (save-excursion (cadr (ar-beginning-of-string-atpt)))
+         (beg (cond (beg)
+                    ((use-region-p)
+                     (region-beginning))
+                    ((and (nth 8 pps)(nth 3 pps))
+                     (goto-char (nth 8 pps))
+                     (point))))
+         ;; (copy-marker (cdr (ar-end-of-string-atpt)))
+         (end (cond (end)
+                    ((use-region-p)
+                     (copy-marker (region-end)))
+                    ((and (nth 8 pps)(nth 3 pps))
+                     (forward-sexp)
+                     (copy-marker (point)))))
+         (erg (buffer-substring beg end)))
+    (when (and beg end)
+      (delete-region beg end)
+      (insert (reverse erg)))))
+
+(after! rustic-flycheck
+  (setq rustic-flycheck-clippy-params "--message-format=json"))
+
+(defun setup-tide-mode ()
+  (interactive)
+  (tide-setup)
+  (flycheck-mode +1)
+  (setq flycheck-check-syntax-automatically '(save mode-enabled))
+  (eldoc-mode +1)
+  (tide-hl-identifier-mode +1)
+  (set-company-backend! 'typescript-mode '(company-tide))
+  (setq company-backends '(company-tide))
+  ;; company is an optional dependency. You have to
+  ;; install it separately via package-install
+  ;; `M-x package-install [ret] company`
+  (company-mode +1))
+
+;; aligns annotation to the right hand side
+(setq company-tooltip-align-annotations t)
+
+;; formats the buffer before saving
+(add-hook 'before-save-hook 'tide-format-before-save)
+
+(add-hook 'typescript-mode-hook #'setup-tide-mode)
+(map! :localleader
+      :map typescript-mode-map
+      "i" #'tide-fix)
+
+(after! browse-url
+  (setq browse-url-firefox-program "firefox-developer-edition"
+        browse-url-browser-function #'browse-url-firefox))
+
+(after! ccls
+  (require 'ccls)
+  ;; (setq ccls-sem-highlight-method 'font-lock)
+  (add-hook 'c-mode-hook 'lsp)
+  (add-hook 'c++-mode-hook (lambda () (require 'ccls) (lsp-deferred)))
+  (evil-define-key 'normal c++-mode-map (kbd "C-]") #'lsp-find-definition)
+  (evil-define-key 'normal c++-mode-map (kbd "C-t") #'pop-tag-mark)
+  (evil-define-key 'normal c++-mode-map (kbd "C-M-.") #'lsp-ui-find-workspace-symbol))
+
+(defun process-kill-without-query (process &optional flag)
+  (set-process-query-on-exit-flag process nil)
+  t)
+
+(defun ruin/toggle-inhibit-modification-hooks ()
+  (interactive)
+  (setq inhibit-modification-hooks (not inhibit-modification-hooks))
+  (message "Inhibit: %s" inhibit-modification-hooks))
+
+(setq enable-local-variables t)
+
+(after! sql-indent
+  (add-hook 'sql-mode-hook #'sqlind-minor-mode)
+  (setq sqlind-basic-offset 4))
+
+(after! stylus-mode
+  (add-hook 'stylus-mode-hook #'rainbow-mode))
+
+(after! dhall-mode
+  (setq dhall-use-header-line nil))
+
+(after! alchemist
+  (add-hook 'alchemist-iex-mode-hook (lambda () (add-to-list 'company-backends 'alchemist-company))))
