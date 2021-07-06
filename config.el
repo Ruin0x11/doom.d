@@ -347,12 +347,8 @@
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
           "t" #'open-nefia-insert-template
-          >>>>>>> origin/master
           "c" #'open-nefia-start-game
           "h" #'open-nefia-run-headlessly
-          (:prefix ("t" . "test")
-           "a" #'open-nefia-run-tests
-           "t" #'open-nefia-run-tests-this-file)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
@@ -690,13 +686,9 @@
 
 (setq js-indent-level 2)
 (setq-default evil-shift-width 2)
-                                        ; (advice-add 'eval-last-sexp :after #'save-buffer)
-                                        ; (advice-add 'eval-defun :after #'save-buffer)
-                                        ; (advice-add 'eval-buffer :after #'save-buffer)
-
-(require 'teal-mode)
-(after! teal-mode
-  )
+; (advice-add 'eval-last-sexp :after #'save-buffer)
+; (advice-add 'eval-defun :after #'save-buffer)
+; (advice-add 'eval-buffer :after #'save-buffer)
 
 (require 'flycheck-tl)
 (after! flycheck-tl
@@ -707,8 +699,6 @@
 (after! undo-tree
   (global-undo-tree-mode t)
   (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
-
-(load-theme 'doom-tomorrow-night t)
 
 (map! :leader
       (:prefix ("r" . "replace")
@@ -776,3 +766,49 @@
   (evil-find-char 1 (string-to-char "\"")))
 
 (define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
+
+(defun delete-region-writeable (begin end)
+  "Removes the read-only text property from the marked region."
+  ;; See http://stackoverflow.com/questions/7410125
+  (interactive "r")
+  (let ((modified (buffer-modified-p))
+        (inhibit-read-only t))
+    (remove-text-properties begin end '(read-only t))
+    (set-buffer-modified-p modified)
+    (delete-region begin end)))
+
+(define-key ruby-mode-map (kbd "C-c C-e") 'ruby-send-line)
+
+(setq comint-filter-long-lines-max 1000)
+(defvar comint-filter-long-lines-offset 0)
+(defun comint-filter-long-lines (string)
+  (let*
+      ((lines (split-string string "\n"))
+       (line-lengths (mapcar 'length lines))
+       (curr-line-length (+ (car line-lengths) comint-filter-long-lines-offset))
+       (output
+        (if (or (> curr-line-length comint-filter-long-lines-max)
+                (> (apply 'max line-lengths) comint-filter-long-lines-max))
+            (let*
+                ((line (car lines))
+                 (curr
+                  (if (> curr-line-length comint-filter-long-lines-max)
+                      ;; 이미 잘렸으면 그냥 넘어간다
+                      (if (> comint-filter-long-lines-offset comint-filter-long-lines-max)
+                          ""
+                        (concat (substring line 0 (- comint-filter-long-lines-max comint-filter-long-lines-offset))
+                                "\033[031m ...\033[0m"))
+                    line))
+                 (rest (mapconcat
+                        (lambda (line)
+                          (if (> (length line) comint-filter-long-lines-max)
+                              (concat (substring line 0 comint-filter-long-lines-max) "\033[031m ...\033[0m")
+                            line))
+                        (cdr lines) "\n")))
+              (if (string-empty-p rest) curr (concat curr "\n" rest)))
+          string)))
+    (setq comint-filter-long-lines-offset
+          (if (string-match comint-prompt-regexp string) 0 (car (last line-lengths))))
+    output))
+
+(add-hook 'comint-preoutput-filter-functions #'comint-filter-long-lines)

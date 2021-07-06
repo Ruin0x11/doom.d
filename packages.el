@@ -73,3 +73,5 @@
 (package! buffer-move)
 
 (package! lispy)
+
+(package! powershell)
