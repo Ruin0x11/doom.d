@@ -19,7 +19,7 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Kochi Gothic" :size 14))
+(setq doom-font (font-spec :family "Screen" :size 14))
 
 (defun ruin/init-cjk-font ()
   (interactive)
@@ -37,7 +37,8 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-tomorrow-night)
+(setq doom-theme 'doom-manegarm)
+(setq doom-manegarm-darker-background t)
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
@@ -250,13 +251,14 @@
   "M-p" #'flycheck-previous-error
   "M-n" #'flycheck-next-error)
 
-(require 'hsp-mode)
-(add-hook 'hsp-mode-hook (lambda ()
-                           (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
-                           (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
-                           (define-key hsp-mode-map (kbd "C-j") nil)
-                           (rainbow-mode 1)
-                           (flycheck-mode -1)))
+(when (locate-library "hsp-mode")
+  (require 'hsp-mode)
+  (add-hook 'hsp-mode-hook (lambda ()
+                             (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
+                             (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
+                             (define-key hsp-mode-map (kbd "C-j") nil)
+                             (rainbow-mode 1)
+                             (flycheck-mode -1))))
 
 (after! rainbow-mode
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
@@ -746,9 +748,10 @@
                                         ; (advice-add 'eval-defun :after #'save-buffer)
                                         ; (advice-add 'eval-buffer :after #'save-buffer)
 
+(when (locate-library "teal-mode")
 (require 'teal-mode)
 (after! teal-mode
-  )
+  ))
 
 (require 'flycheck-tl)
 (after! flycheck-tl
@@ -895,7 +898,9 @@ to run the replacement."
 
 (desktop-save-mode 1)
 (setq desktop-save t
-      desktop-load-locked-desktop nil
+      desktop-restore-eager 5
+      desktop-load-locked-desktop t
+      desktop-path (list (locate-user-emacs-file "."))
       desktop-dirname (locate-user-emacs-file "."))
 (setq debug-on-error nil)
 (setq debug-on-quit nil)
@@ -904,7 +909,8 @@ to run the replacement."
 (after! evil-snipe
   (setq evil-snipe-override-mode nil))
 
-(require 'semgrep)
+(when (locate-library "semgrep")
+  (require 'semgrep))
 
 (defun ruin/reverse-at-point (&optional beg end)
   "Replace a string or region at point by result of ‘reverse’.
