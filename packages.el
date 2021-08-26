@@ -46,9 +46,9 @@
 ;; our package manager can't deal with; see raxod502/straight.el#279)
 ;(package! builtin-package :recipe (:branch "develop"))
 
-(package! cider :recipe
-  (:local-repo "~/build/cider"
-   :files ("*.el" "src/lisp/*.el")))
+; (package! cider :recipe
+;   (:local-repo "~/build/cider"
+;    :files ("*.el" "src/lisp/*.el")))
 
 (package! hsp-mode :recipe
   (:local-repo "~/.doom.d/site-lisp"
@@ -62,9 +62,9 @@
 
 (package! dtrt-indent :disable t)
 
-(package! clang-format)
+; (package! clang-format)
 
-(package! arduino-mode)
+; (package! arduino-mode)
 
 (package! sed-mode)
 
@@ -76,18 +76,16 @@
 
 (package! powershell)
 
-(package! fennel-mode)
+; (package! cmake-mode)
 
-(package! cmake-mode)
-
-(package! ccls)
+; (package! ccls)
 
 (package! stylus-mode)
 
 (package! sql-indent)
 
-(package! omnisharp :disable t)
+; (package! omnisharp :disable t)
 
-(package! dhall-mode)
+; (package! dhall-mode)
 
 (package! evil-snipe :disable t)
