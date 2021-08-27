@@ -19,7 +19,7 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Kochi Gothic" :size 14))
+(setq doom-font (font-spec :family "MS Gothic" :size 14))
 
 (defun ruin/init-cjk-font ()
   (interactive)
@@ -69,9 +69,12 @@
 (setq tags-add-tables t)
 (savehist-mode 1)
 
+(require 'facemenu)
+
 (after! recentf
   (recentf-load-list)
-  (run-at-time nil (* 120 60) #'recentf-save-list)) ; every 120 mins
+  (run-at-time nil (* 120 60) #'recentf-save-list)
+  (add-hook 'find-file-hook #'recentf-save-list)) ; every 120 mins
 
 (defun reload-site-lisp ()
   "Puts site-lisp and its subdirectories into load-path."
@@ -97,8 +100,7 @@
         :n "C-l" #'evil-window-right)
   (require 'evil-little-word))
 
-(after! evil-snipe
-  (evil-snipe-mode -1))
+(remove-hook 'doom-first-input-hook #'evil-snipe-mode)
 
 (after! which-key
   (setq which-key-idle-delay 1))
@@ -225,7 +227,7 @@
   (setq magit-clone-set-remote.pushDefault t
         magit-remote-add-set-remote.pushDefault t
         magit-commit-ask-to-stage nil
-        magit-no-confirm '(stage-all-changes)
+        magit-no-confirm '(stage-all-changes set-and-push)
         git-commit-summary-max-length 72)) ; GitHub max length
 
 (define-key!
@@ -337,7 +339,7 @@
 
 
 (if IS-WINDOWS
-    (add-to-list 'load-path (expand-file-name "C:/users/kuzuki/build/elona-next/editor/emacs"))
+    (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/elona-next/editor/emacs"))
   (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs")))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
@@ -463,9 +465,10 @@
                '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
                  1 (unless (eq ?\( (char-after)) font-lock-type-face)) t)
 
-  (add-to-list 'lua-font-lock-keywords
-               '("\\_<\\([A-Z][A-Z_]+\\)"
-                 1 (unless (eq ?\( (char-after)) font-lock-constant-face) t) t))
+  ;; (add-to-list 'lua-font-lock-keywords
+  ;;              '("\\_<\\([A-Z][A-Z_]+\\)"
+  ;;                1 (unless (eq ?\( (char-after)) font-lock-constant-face) t) t)
+  )
 
 (after! highlight-numbers
   (add-hook 'hsp-mode-hook #'highlight-numbers-mode))
@@ -775,3 +778,21 @@
   (evil-find-char 1 (string-to-char "\"")))
 
 (define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
+
+(setq open-nefia-context-shade2-source-dir "~/build/poppy")
+
+;; ispell
+(when (eq system-type 'windows-nt)
+    (add-to-list 'exec-path "C:/Program Files (x86)/Aspell/bin/")
+    (setq ispell-program-name "aspell")
+    (setq ispell-personal-dictionary (locate-user-emacs-file ".ispell"))
+    (require 'ispell))
+
+(after! monroe
+  (setq monroe-default-host "localhost:3939"))
+
+(after! ron-mode
+  (setq ron-indent-offset 2))
+
+(after! diff
+  (setq diff-refine nil))

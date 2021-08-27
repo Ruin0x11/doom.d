@@ -73,3 +73,7 @@
 (package! buffer-move)
 
 (package! lispy)
+
+(package! monroe)
+
+(package! ron-mode)
