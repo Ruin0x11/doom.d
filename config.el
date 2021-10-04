@@ -37,7 +37,12 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-one)
+;; (setq doom-theme 'doom-one)
+; (load-theme 'doom-tomorrow-night t)
+(setq doom-theme 'vscode-dark-plus)
+(set-face-background 'mode-line "#454545")
+(set-face-background 'mode-line-inactive "#303030")
+
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
@@ -116,14 +121,6 @@
 (after! ivy
   (setq ivy-height 40))
 
-(after! projectile
-  (when (executable-find doom-projectile-fd-binary)
-    (setq projectile-generic-command
-          (concat (format "%s . -0 -H -E .git --color=never --type file --type symlink --follow"
-                          doom-projectile-fd-binary)
-                  (if IS-WINDOWS " --path-separator=//")))))
-
-
 (after! lua-mode
   (defun ruin/flycheck-locate-config-file-ancestor-directories (file _checker)
     (when-let ((path (flycheck-locate-config-file-ancestor-directories file _checker)))
@@ -188,12 +185,12 @@
                                (file-name-directory (buffer-file-name))
                              "~/"))))
    ((string= system-type "windows-nt")
-    (shell-command (format "explorer %s"
-                           (replace-regexp-in-string
-                            "/" "\\\\"
-                            (if (buffer-file-name)
-                                (file-name-directory (buffer-file-name))
-                              (expand-file-name  "~/"))))))))
+    (start-process "explorer" nil "explorer"
+                   (replace-regexp-in-string
+                    "/" "\\\\"
+                    (if (buffer-file-name)
+                        (file-name-directory (buffer-file-name))
+                      (expand-file-name  "~/")))))))
 
 (define-key! help-map
   "h" #'helpful-at-point)
@@ -351,13 +348,15 @@
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
           "l" #'open-nefia-locale-search
+          "L" #'open-nefia-locale-key-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
           "c" #'open-nefia-start-game
           "h" #'open-nefia-run-headlessly
           (:prefix ("t" . "test")
            "a" #'open-nefia-run-tests
-           "t" #'open-nefia-run-tests-this-file)
+           "t" #'open-nefia-run-tests-this-file
+           "r" #'open-nefia-run-previous-tests)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
@@ -662,6 +661,14 @@
 (after! migemo
   (setq migemo-isearch-enable-p nil))
 
+(when (eq window-system 'w32)
+  (setq tramp-default-method "plink"))
+
+(setq undo-fu-session-compression nil)
+
+(setq plantuml-default-exec-mode 'jar
+      plantuml-java-args (list "-D 'java.awt.headless=true'" "-jar"))
+
 (after! company
   (setq evil-complete-next-func 'company-select-next)
   (setq evil-complete-previous-func 'company-select-previous)
@@ -709,8 +716,6 @@
 (after! undo-tree
   (global-undo-tree-mode t)
   (add-hook 'prog-mode-hook #'turn-on-undo-tree-mode))
-
-(load-theme 'doom-tomorrow-night t)
 
 (map! :leader
       (:prefix ("r" . "replace")
@@ -796,3 +801,88 @@
 
 (after! diff
   (setq diff-refine nil))
+
+(cl-defun rmsbolt--rustic-compile-cmd (&key src-buffer)
+  "Process a compile command for rustic."
+  (rmsbolt--with-files
+   src-buffer
+   (let* ((src-filename (string-replace "\\:/" ":/" src-filename))
+          (output-filename (string-replace "\\:/" ":/" output-filename))
+          (asm-format (buffer-local-value 'rmsbolt-asm-format src-buffer))
+          (disass (buffer-local-value 'rmsbolt-disassemble src-buffer))
+          (cmd (buffer-local-value 'rmsbolt-command src-buffer))
+          (cargo-toml (locate-dominating-file src-filename "Cargo.toml"))
+          (cmd (mapconcat #'identity
+                          (list
+                                cmd
+                                "rustc"
+                                (when cargo-toml "--manifest-path")
+                                (when cargo-toml (expand-file-name "Cargo.toml" cargo-toml))
+                                "--release"
+                                "--"
+                                "-g"
+                                "--emit"
+                                (if disass
+                                    "link"
+                                  "asm")
+                                ;; src-filename
+                                "-o" output-filename
+                                (when (and (not (booleanp asm-format))
+                                           (not disass))
+                                  (concat "-Cllvm-args=--x86-asm-syntax=" asm-format)))
+                          " ")))
+     (when cargo-toml
+       (setq-local rmsbolt-default-directory cargo-toml))
+      cmd)))
+
+
+(after! rmsbolt
+  (require 'rmsbolt)
+  (let ((lang (make-rmsbolt-lang :compile-cmd "cargo"
+                                 :supports-asm t
+                                 :supports-disass nil
+                                 :objdumper 'objdump
+                                 :demangler "rustfilt"
+                                 :compile-cmd-function #'rmsbolt--rustic-compile-cmd)))
+    (add-to-list 'rmsbolt-languages `(rustic-mode . ,lang))))
+
+(defun xah-open-in-external-app (&optional file)
+  "Open the current file or dired marked files in external app.
+
+The app is chosen from your OS's preference."
+  (interactive)
+  (let (doIt
+         (myFileList
+          (cond
+           ((string-equal major-mode "dired-mode") (dired-get-marked-files))
+           ((not file) (list (buffer-file-name)))
+           (file (list file)))))
+
+    (setq doIt (if (<= (length myFileList) 5)
+                   t
+                 (y-or-n-p "Open more than 5 files? ") ) )
+
+    (when doIt
+      (cond
+       ((string-equal system-type "windows-nt")
+        (mapc (lambda (fPath) (w32-shell-execute "open" (replace-regexp-in-string "/" "\\" fPath t t)) ) myFileList))
+       ((string-equal system-type "darwin")
+        (mapc (lambda (fPath) (shell-command (format "open \"%s\"" fPath)) )  myFileList) )
+       ((string-equal system-type "gnu/linux")
+        (mapc (lambda (fPath) (let ((process-connection-type nil)) (start-process "" nil "xdg-open" fPath)) ) myFileList) ) ) ) ) )
+
+(after! json
+  (setq-default flycheck-disabled-checkers '(json-python-json)))
+
+(when (featurep! :tools lookup)
+  (map! :leader
+        (:prefix ("c" . "code")
+         "r" #'+lookup/references))
+
+  (map! :nv "gr" #'+lookup/references
+        :nv "gi" #'+lookup/impementations
+        :nv "ga" #'+lookup/assignments))
+
+(map! :leader
+  (:prefix ("f" . "file")
+   "B" #'explorer))

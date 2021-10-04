@@ -77,3 +77,9 @@
 (package! monroe)
 
 (package! ron-mode)
+
+(package! glsl-mode)
+
+(package! rmsbolt)
+
+(package! vscode-dark-plus-theme)
