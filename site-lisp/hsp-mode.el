@@ -536,9 +536,11 @@ Return the amount the indentation changed by."
   (run-hooks 'hsp-mode-set-comment-hook)
   (modify-syntax-entry	hsp-comment-char
 			"<" hsp-mode-syntax-table)
+  ;; (modify-syntax-entry	?/
+  ;;       		"<" hsp-mode-syntax-table)
   (modify-syntax-entry	?\n
 			">" hsp-mode-syntax-table)
-  (let ((cs (regexp-quote (char-to-string hsp-comment-char))))
+  (let ((cs "\\(;\\|//\\)"))
     (make-local-variable 'comment-start)
     (setq comment-start (concat cs " "))
     (make-local-variable 'comment-start-skip)

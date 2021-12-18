@@ -71,6 +71,9 @@
 ;; they are implemented.
 ;;
 
+(when (string= system-type "windows-nt")
+  (set-clipboard-coding-system 'utf-16-le))
+
 (setq tags-add-tables t)
 (savehist-mode 1)
 
@@ -114,6 +117,7 @@
   (require 'lsp-lua-sumneko)
   (setq lsp-auto-guess-root nil
         lsp-clients-emmy-lua-jar-path (expand-file-name (locate-user-emacs-file "EmmyLua-LS-all.jar"))
+        lsp-ui-sideline-enable nil
         lsp-lua-sumneko-workspace-preload-file-size 100000
         lsp-lua-sumneko-workspace-max-preload 100000
         lsp-lua-sumneko-runtime-version "LuaJIT"))
@@ -255,7 +259,11 @@
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("color \s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*"
                  (0 (rainbow-colorize-rgb))))
-  (add-hook 'hsp-mode-hook 'rainbow-mode))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("SetColor(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\(,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\)?)"
+                 (0 (rainbow-colorize-rgb))))
+  (add-hook 'hsp-mode-hook 'rainbow-mode)
+  (add-hook 'csharp-mode-hook 'rainbow-mode))
 
 
 ;;http://steve.yegge.googlepages.com/my-dot-emacs-file
@@ -336,7 +344,9 @@
 
 
 (if IS-WINDOWS
-    (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/elona-next/editor/emacs"))
+    (progn
+      (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/elona-next/editor/emacs"))
+      (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/OpenNefia.NET2/Support")))
   (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs")))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
@@ -374,6 +384,16 @@
            "g" #'open-nefia-context-goto
            "s" #'open-nefia-context-show))))
 
+(when (locate-library "open-nefia-cs")
+  (require 'open-nefia-cs)
+  (after! open-nefia-cs
+    (map! :localleader
+          :map csharp-mode-map
+          (:prefix ("e" . "eval")
+           "l" #'open-nefia-cs-send-current-line
+           "b" #'open-nefia-cs-send-buffer
+           "r" #'open-nefia-cs-send-region
+           "f" #'open-nefia-cs-send-defun))))
 (after! elisp-mode
   (map! :localleader
         :map emacs-lisp-mode-map
@@ -628,7 +648,8 @@
        :desc "Calc" "c" #'calc
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("b" . "buffer")
-       :desc "Format all" "f" #'format-all-buffer)
+       :desc "Format all" "f" #'format-all-buffer
+       :desc "Yank buffer file name" "y" #'ruin/yank-path-of-buffer-file)
       (:prefix-map ("y" . "yank")
        :desc "Yank line and file" "p" #'ruin/copy-current-line-position-to-clipboard
        :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2
@@ -655,7 +676,8 @@
   (set-face-foreground 'hi-green "#444"))
 
 (after! markdown-mode
-  (add-hook 'markdown-mode-hook #'flyspell-mode))
+  (add-hook 'markdown-mode-hook #'flyspell-mode)
+  (setq markdown-fontify-code-blocks-natively t))
 (put 'narrow-to-region 'disabled nil)
 
 (after! migemo
@@ -884,5 +906,19 @@ The app is chosen from your OS's preference."
         :nv "ga" #'+lookup/assignments))
 
 (map! :leader
-  (:prefix ("f" . "file")
-   "B" #'explorer))
+      (:prefix ("r" . "replace")
+       "r" #'lsp-rename)
+      (:prefix ("f" . "file")
+       "B" #'explorer))
+
+(after! counsel
+  (advice-add 'counsel-rg
+              :around
+              (lambda (func &rest args)
+                (cl-letf (((symbol-function #'process-exit-status)
+                           (lambda (_proc) 0)))
+                  (apply func args)))))
+
+(after! indent-tools
+  (require 'indent-tools)
+  (add-hook 'yaml-mode-hook #'indent-tools-minor-mode))

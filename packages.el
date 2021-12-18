@@ -83,3 +83,5 @@
 (package! rmsbolt)
 
 (package! vscode-dark-plus-theme)
+
+(package! indent-tools)
