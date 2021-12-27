@@ -199,7 +199,30 @@
 (define-key! help-map
   "h" #'helpful-at-point)
 
+;; https://emacs.stackexchange.com/a/2838
+(defun ruin/create-newline-and-allman-format (&rest _ignored)
+"Allman-style formatting for C."
+  (interactive)
+  (let ((line
+         (save-excursion
+           (previous-line 1)
+           (buffer-substring-no-properties (line-beginning-position) (line-end-position)))))
+    (newline-and-indent)
+    (if (string-match-p "^[ \t]*{$" line)
+        (progn
+          (previous-line)
+          (indent-according-to-mode))
+      (progn
+        (message "Getto")
+        (previous-line 2)
+        (search-forward "{")
+        (backward-char)
+        (newline-and-indent)
+        (next-line)
+        (indent-according-to-mode)))))
+
 (after! smartparens
+  (sp-local-pair '(c-mode csharp-mode) "{" nil :post-handlers '((ruin/create-newline-and-allman-format "RET")))
   (map! :map lisp-mode-map
         :nv ">" #'sp-slurp-hybrid-sexp
         :nv "<" #'sp-forward-barf-sexp)
@@ -346,7 +369,7 @@
 (if IS-WINDOWS
     (progn
       (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/elona-next/editor/emacs"))
-      (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/OpenNefia.NET2/Support")))
+      (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/OpenNefia.NET/Support")))
   (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs")))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
@@ -389,11 +412,13 @@
   (after! open-nefia-cs
     (map! :localleader
           :map csharp-mode-map
+          "h" #'open-nefia-cs-run-headlessly
           (:prefix ("e" . "eval")
            "l" #'open-nefia-cs-send-current-line
            "b" #'open-nefia-cs-send-buffer
            "r" #'open-nefia-cs-send-region
            "f" #'open-nefia-cs-send-defun))))
+
 (after! elisp-mode
   (map! :localleader
         :map emacs-lisp-mode-map
@@ -409,6 +434,17 @@
   (let ((filename (if arg file (file-name-directory file))))
     (kill-new filename)
     (message filename)))
+
+(defun ruin/yank-filename-of-buffer-file ()
+  (interactive)
+  (let ((filename (if (equal major-mode 'dired-mode)
+                      default-directory
+                    (buffer-file-name))))
+    (when filename
+      (with-temp-buffer
+        (insert filename)
+        (clipboard-kill-region (point-min) (point-max)))
+      (message filename))))
 
 (defun ruin/regenerate-ltags ()
   (interactive)
@@ -649,7 +685,8 @@
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("b" . "buffer")
        :desc "Format all" "f" #'format-all-buffer
-       :desc "Yank buffer file name" "y" #'ruin/yank-path-of-buffer-file)
+       :desc "Yank buffer file name" "y" #'ruin/yank-filename-of-buffer-file
+       :desc "Yank buffer path" "Y" #'ruin/yank-path-of-buffer-file)
       (:prefix-map ("y" . "yank")
        :desc "Yank line and file" "p" #'ruin/copy-current-line-position-to-clipboard
        :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2
@@ -922,3 +959,40 @@ The app is chosen from your OS's preference."
 (after! indent-tools
   (require 'indent-tools)
   (add-hook 'yaml-mode-hook #'indent-tools-minor-mode))
+
+(after! ron-mode
+  (require 'ron-mode))
+
+(after! csharp-mode
+  (c-add-style
+   "ruin" '((c-comment-only-line-offset . 0)
+            (c-hanging-braces-alist (brace-list-open)
+                                    (brace-entry-open)
+                                    (substatement-open before after)
+                                    (block-close . c-snug-do-while)
+                                    (arglist-cont-nonempty))
+            (c-cleanup-list brace-else-brace)
+            (c-offsets-alist
+             (knr-argdecl-intro . 0)
+             (substatement-open . 0)
+             (substatement-label . 0)
+             (statement-cont . +)
+             (case-label . +)
+             ;; align args with open brace OR don't indent at all (if open
+             ;; brace is at eolp and close brace is after arg with no trailing
+             ;; comma)
+             (brace-list-intro . 0)
+             (brace-list-close . -)
+             (arglist-intro . +)
+             (arglist-close +cc-lineup-arglist-close 0)
+             ;; don't over-indent lambda blocks
+             (inline-open . 0)
+             (inlambda . 0)
+             ;; indent access keywords +1 level, and properties beneath them
+             ;; another level
+             (access-label . -)
+             (inclass +cc-c++-lineup-inclass +)
+             (label . 0))))
+
+  (when (listp c-default-style)
+    (setf (alist-get 'csharp-mode c-default-style) "ruin")))
