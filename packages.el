@@ -85,5 +85,5 @@
 (package! vscode-dark-plus-theme)
 
 (package! indent-tools)
-$
+
 (package! ron-mode)

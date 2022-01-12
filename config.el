@@ -131,7 +131,16 @@
       (subst-char-in-string ?/ ?\\ path)))
   (add-hook 'lua-mode-hook (lambda ()
                              (setq flycheck-locate-config-file-functions
-                                   '(ruin/flycheck-locate-config-file-ancestor-directories)))))
+                                   '(ruin/flycheck-locate-config-file-ancestor-directories))))
+
+
+  (defun ruin/stylua-fmt-buffer ()
+    (interactive)
+    (shell-command (format "stylua --config-path %s %s"
+                           (expand-file-name
+                            "stylua.toml"
+                            (projectile-locate-dominating-file (buffer-file-name) "stylua.toml"))
+                           (buffer-file-name)))))
 
 (defun ruin/set-major-mode-from-name (name)
   (let ((case-insensitive-p (file-name-case-insensitive-p name)))
@@ -201,7 +210,7 @@
 
 ;; https://emacs.stackexchange.com/a/2838
 (defun ruin/create-newline-and-allman-format (&rest _ignored)
-"Allman-style formatting for C."
+  "Allman-style formatting for C."
   (interactive)
   (let ((line
          (save-excursion
@@ -213,7 +222,6 @@
           (previous-line)
           (indent-according-to-mode))
       (progn
-        (message "Getto")
         (previous-line 2)
         (search-forward "{")
         (backward-char)
@@ -374,18 +382,18 @@
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
-    (setq lua-indent-level 3)
-    (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
+    (setq lua-indent-level 4)
+    ;(define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
-          "l" #'open-nefia-locale-search
-          "L" #'open-nefia-locale-key-search
+                                        ; "l" #'open-nefia-locale-search
+                                        ; "L" #'open-nefia-locale-key-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
           "c" #'open-nefia-start-game
-          "h" #'open-nefia-run-headlessly
+          "h" #'open-nefia-run-headlessly-repl
           (:prefix ("t" . "test")
            "a" #'open-nefia-run-tests
            "t" #'open-nefia-run-tests-this-file
@@ -417,7 +425,10 @@
            "l" #'open-nefia-cs-send-current-line
            "b" #'open-nefia-cs-send-buffer
            "r" #'open-nefia-cs-send-region
-           "f" #'open-nefia-cs-send-defun))))
+           "f" #'open-nefia-cs-send-defun))
+    (map! :localleader
+          :map lua-mode-map
+          "l" #'open-nefia-cs-jump-to-other-locale-file)))
 
 (after! elisp-mode
   (map! :localleader
@@ -673,6 +684,15 @@
       (when arg (display-buffer download-buffer)))))
 
 (require 'format-all)
+(after! format-all
+  (define-format-all-formatter stylua
+    (:executable "stylua")
+    (:install "cargo install stylua")
+    (:languages "Lua")
+    (:format
+     (format-all--buffer-hard
+      '(0 1) nil '("stylua.toml")
+      executable "-"))))
 
 (map! :leader
       :desc "Popup terminal" "\"" #'ruin/popup-term
@@ -791,7 +811,7 @@
 (require 'lispy)
 (defun ruin/lispy-read-expr-at-point ()
   (let* ((bnd (lispy--bounds-list))
-          (str (lispy--string-dwim bnd)))
+         (str (lispy--string-dwim bnd)))
     (lispy--read str)))
 
 (defun ruin/lispy-oneline-in-sexp ()
@@ -847,10 +867,10 @@
 
 ;; ispell
 (when (eq system-type 'windows-nt)
-    (add-to-list 'exec-path "C:/Program Files (x86)/Aspell/bin/")
-    (setq ispell-program-name "aspell")
-    (setq ispell-personal-dictionary (locate-user-emacs-file ".ispell"))
-    (require 'ispell))
+  (add-to-list 'exec-path "C:/Program Files (x86)/Aspell/bin/")
+  (setq ispell-program-name "aspell")
+  (setq ispell-personal-dictionary (locate-user-emacs-file ".ispell"))
+  (require 'ispell))
 
 (after! monroe
   (setq monroe-default-host "localhost:3939"))
@@ -873,26 +893,26 @@
           (cargo-toml (locate-dominating-file src-filename "Cargo.toml"))
           (cmd (mapconcat #'identity
                           (list
-                                cmd
-                                "rustc"
-                                (when cargo-toml "--manifest-path")
-                                (when cargo-toml (expand-file-name "Cargo.toml" cargo-toml))
-                                "--release"
-                                "--"
-                                "-g"
-                                "--emit"
-                                (if disass
-                                    "link"
-                                  "asm")
-                                ;; src-filename
-                                "-o" output-filename
-                                (when (and (not (booleanp asm-format))
-                                           (not disass))
-                                  (concat "-Cllvm-args=--x86-asm-syntax=" asm-format)))
+                           cmd
+                           "rustc"
+                           (when cargo-toml "--manifest-path")
+                           (when cargo-toml (expand-file-name "Cargo.toml" cargo-toml))
+                           "--release"
+                           "--"
+                           "-g"
+                           "--emit"
+                           (if disass
+                               "link"
+                             "asm")
+                           ;; src-filename
+                           "-o" output-filename
+                           (when (and (not (booleanp asm-format))
+                                      (not disass))
+                             (concat "-Cllvm-args=--x86-asm-syntax=" asm-format)))
                           " ")))
      (when cargo-toml
        (setq-local rmsbolt-default-directory cargo-toml))
-      cmd)))
+     cmd)))
 
 
 (after! rmsbolt
@@ -911,11 +931,11 @@
 The app is chosen from your OS's preference."
   (interactive)
   (let (doIt
-         (myFileList
-          (cond
-           ((string-equal major-mode "dired-mode") (dired-get-marked-files))
-           ((not file) (list (buffer-file-name)))
-           (file (list file)))))
+        (myFileList
+         (cond
+          ((string-equal major-mode "dired-mode") (dired-get-marked-files))
+          ((not file) (list (buffer-file-name)))
+          (file (list file)))))
 
     (setq doIt (if (<= (length myFileList) 5)
                    t
