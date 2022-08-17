@@ -289,7 +289,7 @@ tags table for BUF and its (recursively) included tags tables."
     (,(concat hsp-font-lock-keyword-beg-re
               "\\_<\\(true\\|false\\|falseM\\)\\_>")
      1 font-lock-constant-face)
-    (hsp-highlight-vars 0 hsp--face)
+    ;; (hsp-highlight-vars 0 hsp--face)
     )
   "Additional expressions to highlight in HSP mode.")
 

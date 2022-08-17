@@ -92,8 +92,6 @@
 
 (package! monroe)
 
-(package! ron-mode)
-
 (package! glsl-mode)
 
 (package! rmsbolt)

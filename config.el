@@ -1,4 +1,4 @@
-;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
+ ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
 
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
@@ -19,7 +19,7 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "MS Gothic" :size 14))
+(setq doom-font (font-spec :family "JetBrains Mono Light" :size 26))
 
 (defun ruin/init-cjk-font ()
   (interactive)
@@ -37,7 +37,7 @@
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
-(setq doom-theme 'doom-manegarm)
+(setq doom-theme 'doom-monokai-octagon)
 (setq doom-manegarm-darker-background t)
 
 ;; If you use `org' and don't want your org files in the default location below,
@@ -360,6 +360,10 @@
 
 (add-to-list 'auto-mode-alist '("\\.luacheckrc?\\'" . lua-mode))
 (add-to-list 'auto-mode-alist '("\\.rockspec?\\'" . lua-mode))
+(add-to-list 'auto-mode-alist '("\\.csx\\'" . csharp-mode))
+
+(setq mouse-wheel-scroll-amount '(0.001)
+      mouse-wheel-progressive-speed nil)
 
 (setq js-indent-level 4)
 
@@ -904,6 +908,7 @@ to run the replacement."
 (map! :leader
       (:prefix ("r" . "replace")
        "r" #'ruin/projectile-replace
+       "i" #'string-inflection-camelcase
        "R" #'ruin/projectile-replace-regexp
        "s" #'ruin/refactor-name))
 
