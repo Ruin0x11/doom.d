@@ -89,3 +89,17 @@
 ; (package! dhall-mode)
 
 (package! evil-snipe :disable t)
+
+(package! monroe)
+
+(package! ron-mode)
+
+(package! glsl-mode)
+
+(package! rmsbolt)
+
+(package! vscode-dark-plus-theme)
+
+(package! indent-tools)
+
+(package! ron-mode)

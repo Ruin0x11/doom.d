@@ -363,39 +363,40 @@ repeatedly until you are satisfied with the kind of comment."
   (interactive)
   (cond
 
-   ;; Blank line?  Then start comment at code indent level.
-   ((hsp-line-matches "^[ \t]*$")
-    (delete-horizontal-space)
-    (tab-to-tab-stop)
-    (insert hsp-comment-char comment-start))
+   ;; ;; Blank line?  Then start comment at code indent level.
+   ;; ((hsp-line-matches "^[ \t]*$")
+   ;;  (delete-horizontal-space)
+   ;;  (tab-to-tab-stop)
+   ;;  (insert hsp-comment-char comment-start))
 
-   ;; Nonblank line with no comment chars in it?
-   ;; Then start a comment at the current comment column
-   ((hsp-line-matches (format "^[^%c\n]+$" hsp-comment-char))
-    (indent-for-comment))
+   ;; ;; Nonblank line with no comment chars in it?
+   ;; ;; Then start a comment at the current comment column
+   ;; ((hsp-line-matches (format "^[^%c\n]+$" hsp-comment-char))
+   ;;  (indent-for-comment))
 
-   ;; Flush-left comment present?  Just insert character.
-   ((hsp-line-matches hsp-flush-left-empty-comment-pattern)
-    (insert hsp-comment-char))
+   ;; ;; Flush-left comment present?  Just insert character.
+   ;; ((hsp-line-matches hsp-flush-left-empty-comment-pattern)
+   ;;  (insert hsp-comment-char))
 
-   ;; Empty code-level comment already present?
-   ;; Then start flush-left comment, on line above if this one is nonempty.
-   ((hsp-line-matches hsp-code-level-empty-comment-pattern)
-    (hsp-pop-comment-level)
-    (insert hsp-comment-char hsp-comment-char comment-start))
+   ;; ;; Empty code-level comment already present?
+   ;; ;; Then start flush-left comment, on line above if this one is nonempty.
+   ;; ((hsp-line-matches hsp-code-level-empty-comment-pattern)
+   ;;  (hsp-pop-comment-level)
+   ;;  (insert hsp-comment-char hsp-comment-char comment-start))
 
-   ;; Empty comment ends line?
-   ;; Then make code-level comment, on line above if this one is nonempty.
-   ((hsp-line-matches hsp-inline-empty-comment-pattern)
-    (hsp-pop-comment-level)
-    (tab-to-tab-stop)
-    (insert hsp-comment-char comment-start))
+   ;; ;; Empty comment ends line?
+   ;; ;; Then make code-level comment, on line above if this one is nonempty.
+   ;; ((hsp-line-matches hsp-inline-empty-comment-pattern)
+   ;;  (hsp-pop-comment-level)
+   ;;  (tab-to-tab-stop)
+   ;;  (insert hsp-comment-char comment-start))
 
    ;; If all else fails, insert character
    (t
     (insert hsp-comment-char))
    )
-  (end-of-line))
+  ;; (end-of-line)
+  )
 
 (defun hsp-indent-command (&optional whole-exp)
   "HSP-format indent."
@@ -537,9 +538,11 @@ Return the amount the indentation changed by."
   (run-hooks 'hsp-mode-set-comment-hook)
   (modify-syntax-entry	hsp-comment-char
 			"<" hsp-mode-syntax-table)
+  ;; (modify-syntax-entry	?/
+  ;;       		"<" hsp-mode-syntax-table)
   (modify-syntax-entry	?\n
 			">" hsp-mode-syntax-table)
-  (let ((cs (regexp-quote (char-to-string hsp-comment-char))))
+  (let ((cs "\\(;\\|//\\)"))
     (make-local-variable 'comment-start)
     (setq comment-start (concat cs " "))
     (make-local-variable 'comment-start-skip)

@@ -19,7 +19,7 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "Screen" :size 14))
+(setq doom-font (font-spec :family "MS Gothic" :size 14))
 
 (defun ruin/init-cjk-font ()
   (interactive)
@@ -67,12 +67,18 @@
 ;; they are implemented.
 ;;
 
+(when (string= system-type "windows-nt")
+  (set-clipboard-coding-system 'utf-16-le))
+
 (setq tags-add-tables t)
 (savehist-mode 1)
 
+(require 'facemenu)
+
 (after! recentf
   (recentf-load-list)
-  (run-at-time nil (* 60) #'recentf-save-list))
+  (run-at-time nil (* 120 60) #'recentf-save-list)
+  (add-hook 'find-file-hook #'recentf-save-list)) ; every 120 mins
 
 (defun reload-site-lisp ()
   "Puts site-lisp and its subdirectories into load-path."
@@ -103,8 +109,7 @@
     (hi-lock-set-pattern (evil-get-register ?/) 'hi-yellow)
     (evil-ex-nohighlight)))
 
-(after! evil-snipe
-  (evil-snipe-mode -1))
+(remove-hook 'doom-first-input-hook #'evil-snipe-mode)
 
 (after! which-key
   (setq which-key-idle-delay 1))
@@ -113,6 +118,7 @@
   (require 'lsp-lua-sumneko)
   (setq lsp-auto-guess-root nil
         lsp-clients-emmy-lua-jar-path (expand-file-name (locate-user-emacs-file "EmmyLua-LS-all.jar"))
+        lsp-ui-sideline-enable nil
         lsp-lua-sumneko-workspace-preload-file-size 100000
         lsp-lua-sumneko-workspace-max-preload 100000
         lsp-lua-sumneko-runtime-version "LuaJIT")
@@ -127,14 +133,6 @@
 (after! ivy
   (setq ivy-height 40))
 
-(after! projectile
-  (when (executable-find doom-projectile-fd-binary)
-    (setq projectile-generic-command
-          (concat (format "%s . -0 -H -E .git --color=never --type file --type symlink --follow"
-                          doom-projectile-fd-binary)
-                  (if IS-WINDOWS " --path-separator=//")))))
-
-
 (after! lua-mode
   (defun ruin/flycheck-locate-config-file-ancestor-directories (file _checker)
     (when-let ((path (flycheck-locate-config-file-ancestor-directories file _checker)))
@@ -143,7 +141,16 @@
                              (which-function-mode 1)
                              (highlight-numbers-mode 1)
                              (setq flycheck-locate-config-file-functions
-                                   '(ruin/flycheck-locate-config-file-ancestor-directories)))))
+                                   '(ruin/flycheck-locate-config-file-ancestor-directories))))
+
+
+  (defun ruin/stylua-fmt-buffer ()
+    (interactive)
+    (shell-command (format "stylua --config-path %s %s"
+                           (expand-file-name
+                            "stylua.toml"
+                            (projectile-locate-dominating-file (buffer-file-name) "stylua.toml"))
+                           (buffer-file-name)))))
 
 (defun ruin/set-major-mode-from-name (name)
   (let ((case-insensitive-p (file-name-case-insensitive-p name)))
@@ -201,19 +208,41 @@
                                (file-name-directory (buffer-file-name))
                              "~/"))))
    ((string= system-type "windows-nt")
-    (shell-command (format "explorer %s"
-                           (replace-regexp-in-string
-                            "/" "\\\\"
-                            (if (buffer-file-name)
-                                (file-name-directory (buffer-file-name))
-                              (expand-file-name  "~/"))))))))
+    (start-process "explorer" nil "explorer"
+                   (replace-regexp-in-string
+                    "/" "\\\\"
+                    (if (buffer-file-name)
+                        (file-name-directory (buffer-file-name))
+                      (expand-file-name  "~/")))))))
 
 (define-key! help-map
   "h" #'helpful-at-point)
 
+;; https://emacs.stackexchange.com/a/2838
+(defun ruin/create-newline-and-allman-format (&rest _ignored)
+  "Allman-style formatting for C."
+  (interactive)
+  (let ((line
+         (save-excursion
+           (previous-line 1)
+           (buffer-substring-no-properties (line-beginning-position) (line-end-position)))))
+    (newline-and-indent)
+    (if (string-match-p "^[ \t]*{$" line)
+        (progn
+          (previous-line)
+          (indent-according-to-mode))
+      (progn
+        (previous-line 2)
+        (search-forward "{")
+        (backward-char)
+        (newline-and-indent)
+        (next-line)
+        (indent-according-to-mode)))))
+
 (after! smartparens
   (smartparens-global-mode 1)
   (show-smartparens-global-mode 1)
+  (sp-local-pair '(c-mode csharp-mode) "{" nil :post-handlers '((ruin/create-newline-and-allman-format "RET")))
   (map! :map lisp-mode-map
         :nv ">" #'sp-slurp-hybrid-sexp
         :nv "<" #'sp-forward-barf-sexp)
@@ -276,7 +305,11 @@
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("color \s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\)\s*"
                  (0 (rainbow-colorize-rgb))))
-  (add-hook 'hsp-mode-hook 'rainbow-mode))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("SetColor(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\(,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\)?)"
+                 (0 (rainbow-colorize-rgb))))
+  (add-hook 'hsp-mode-hook 'rainbow-mode)
+  (add-hook 'csharp-mode-hook 'rainbow-mode))
 
 
 ;;http://steve.yegge.googlepages.com/my-dot-emacs-file
@@ -371,29 +404,28 @@
        :desc "Pop compilation buffer" "b" #'ruin/pop-compilation-buffer))
 
 (if IS-WINDOWS
-    (add-to-list 'load-path (expand-file-name "C:/users/kuzuki/build/elona-next/editor/emacs"))
-  (progn
-    (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs"))
-    (add-to-list 'load-path (expand-file-name "~/build/elona-next/editor/emacs"))))
+    (progn
+      (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/elona-next/editor/emacs"))
+      (add-to-list 'load-path (expand-file-name "C:/users/yuno/build/OpenNefia.NET/Support")))
+  (add-to-list 'load-path (expand-file-name "~/build/OpenNefia/editor/emacs")))
 (when (locate-library "open-nefia")
   (require 'open-nefia)
   (after! open-nefia
-    (setq lua-indent-level 3)
-    ;; (define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
+    (setq lua-indent-level 4)
+    ;(define-key lua-mode-map (kbd "M-:") #'open-nefia-eval-expression)
     (map! :localleader
           :map lua-mode-map
           "i" #'open-nefia-insert-require
           "I" #'open-nefia-insert-missing-requires
-          "l" #'open-nefia-locale-search
-          "L" #'open-nefia-locale-key-search
+                                        ; "l" #'open-nefia-locale-search
+                                        ; "L" #'open-nefia-locale-key-search
           "r" #'open-nefia-require-file
           "R" #'open-nefia-require-this-file
           "c" #'open-nefia-start-game
-          "h" #'open-nefia-run-headlessly
+          "h" #'open-nefia-run-headlessly-repl
           (:prefix ("t" . "test")
            "a" #'open-nefia-run-tests
            "t" #'open-nefia-run-tests-this-file
-           "f" #'open-nefia-run-test-at-point
            "r" #'open-nefia-run-previous-tests)
           (:prefix ("e" . "eval")
            "l" #'open-nefia-send-current-line
@@ -414,6 +446,21 @@
 
   (require 'open-nefia-yeek))
 
+(when (locate-library "open-nefia-cs")
+  (require 'open-nefia-cs)
+  (after! open-nefia-cs
+    (map! :localleader
+          :map csharp-mode-map
+          "h" #'open-nefia-cs-run-headlessly
+          (:prefix ("e" . "eval")
+           "l" #'open-nefia-cs-send-current-line
+           "b" #'open-nefia-cs-send-buffer
+           "r" #'open-nefia-cs-send-region
+           "f" #'open-nefia-cs-send-defun))
+    (map! :localleader
+          :map lua-mode-map
+          "l" #'open-nefia-cs-jump-to-other-locale-file)))
+
 (after! elisp-mode
   (map! :localleader
         :map emacs-lisp-mode-map
@@ -429,6 +476,17 @@
   (let ((filename (if arg file (file-name-directory file))))
     (kill-new filename)
     (message filename)))
+
+(defun ruin/yank-filename-of-buffer-file ()
+  (interactive)
+  (let ((filename (if (equal major-mode 'dired-mode)
+                      default-directory
+                    (buffer-file-name))))
+    (when filename
+      (with-temp-buffer
+        (insert filename)
+        (clipboard-kill-region (point-min) (point-max)))
+      (message filename))))
 
 (defun ruin/regenerate-ltags ()
   (interactive)
@@ -510,12 +568,6 @@
   ;;                (1 font-lock-function-name-face)) t)
 
   ;; (add-to-list 'lua-font-lock-keywords
-  ;;              '("\\_<\\([A-Z][A-Za-z0-9_]+\\)"
-  ;;                1 (unless (or (eq (face-at-point font-lock-string-face)) (eq ?\( (char-after))) font-lock-constant-face) append) t)
-
-  ;; (add-to-list 'lua-font-lock-keywords
-  ;;              '("\\_<\\([A-Z][A-Z_]+\\)"
-  ;;                1 (unless (eq ?\( (char-after)) font-lock-constant-face prepend)) t)
   )
 
 (after! highlight-numbers
@@ -669,6 +721,15 @@
       (when arg (display-buffer download-buffer)))))
 
 (require 'format-all)
+(after! format-all
+  (define-format-all-formatter stylua
+    (:executable "stylua")
+    (:install "cargo install stylua")
+    (:languages "Lua")
+    (:format
+     (format-all--buffer-hard
+      '(0 1) nil '("stylua.toml")
+      executable "-"))))
 
 (map! :leader
       :desc "Popup terminal" "\"" #'ruin/popup-term
@@ -682,7 +743,9 @@
        :desc "Browse URL" "w" #'browse-url-at-point
        :desc "Build regexp" "x" #'re-builder)
       (:prefix-map ("b" . "buffer")
-       :desc "Format all" "f" #'format-all-buffer)
+       :desc "Format all" "f" #'format-all-buffer
+       :desc "Yank buffer file name" "y" #'ruin/yank-filename-of-buffer-file
+       :desc "Yank buffer path" "Y" #'ruin/yank-path-of-buffer-file)
       (:prefix-map ("y" . "yank")
        :desc "Yank line and file" "p" #'ruin/copy-current-line-position-to-clipboard
        :desc "Yank line and file end" "e" #'ruin/copy-current-line-position-to-clipboard-2
@@ -710,11 +773,20 @@
   (set-face-foreground 'hi-green "#444"))
 
 (after! markdown-mode
-  (add-hook 'markdown-mode-hook #'flyspell-mode))
+  (add-hook 'markdown-mode-hook #'flyspell-mode)
+  (setq markdown-fontify-code-blocks-natively t))
 (put 'narrow-to-region 'disabled nil)
 
 (after! migemo
   (setq migemo-isearch-enable-p nil))
+
+(when (eq window-system 'w32)
+  (setq tramp-default-method "plink"))
+
+(setq undo-fu-session-compression nil)
+
+(setq plantuml-default-exec-mode 'jar
+      plantuml-java-args (list "-D 'java.awt.headless=true'" "-jar"))
 
 (after! company
   (setq evil-complete-next-func 'company-select-next)
@@ -844,7 +916,7 @@ to run the replacement."
 (require 'lispy)
 (defun ruin/lispy-read-expr-at-point ()
   (let* ((bnd (lispy--bounds-list))
-          (str (lispy--string-dwim bnd)))
+         (str (lispy--string-dwim bnd)))
     (lispy--read str)))
 
 (defun ruin/lispy-oneline-in-sexp ()
@@ -1004,3 +1076,158 @@ an active region is set deliberately"
 
 (after! alchemist
   (add-hook 'alchemist-iex-mode-hook (lambda () (add-to-list 'company-backends 'alchemist-company))))
+(define-key evil-normal-state-map (kbd "C-t") 'ruin/translate-line)
+
+(setq open-nefia-context-shade2-source-dir "~/build/poppy")
+
+;; ispell
+(when (eq system-type 'windows-nt)
+  (add-to-list 'exec-path "C:/Program Files (x86)/Aspell/bin/")
+  (setq ispell-program-name "aspell")
+  (setq ispell-personal-dictionary (locate-user-emacs-file ".ispell"))
+  (require 'ispell))
+
+(after! monroe
+  (setq monroe-default-host "localhost:3939"))
+
+(after! ron-mode
+  (setq ron-indent-offset 2))
+
+(after! diff
+  (setq diff-refine nil))
+
+(cl-defun rmsbolt--rustic-compile-cmd (&key src-buffer)
+  "Process a compile command for rustic."
+  (rmsbolt--with-files
+   src-buffer
+   (let* ((src-filename (string-replace "\\:/" ":/" src-filename))
+          (output-filename (string-replace "\\:/" ":/" output-filename))
+          (asm-format (buffer-local-value 'rmsbolt-asm-format src-buffer))
+          (disass (buffer-local-value 'rmsbolt-disassemble src-buffer))
+          (cmd (buffer-local-value 'rmsbolt-command src-buffer))
+          (cargo-toml (locate-dominating-file src-filename "Cargo.toml"))
+          (cmd (mapconcat #'identity
+                          (list
+                           cmd
+                           "rustc"
+                           (when cargo-toml "--manifest-path")
+                           (when cargo-toml (expand-file-name "Cargo.toml" cargo-toml))
+                           "--release"
+                           "--"
+                           "-g"
+                           "--emit"
+                           (if disass
+                               "link"
+                             "asm")
+                           ;; src-filename
+                           "-o" output-filename
+                           (when (and (not (booleanp asm-format))
+                                      (not disass))
+                             (concat "-Cllvm-args=--x86-asm-syntax=" asm-format)))
+                          " ")))
+     (when cargo-toml
+       (setq-local rmsbolt-default-directory cargo-toml))
+     cmd)))
+
+
+(after! rmsbolt
+  (require 'rmsbolt)
+  (let ((lang (make-rmsbolt-lang :compile-cmd "cargo"
+                                 :supports-asm t
+                                 :supports-disass nil
+                                 :objdumper 'objdump
+                                 :demangler "rustfilt"
+                                 :compile-cmd-function #'rmsbolt--rustic-compile-cmd)))
+    (add-to-list 'rmsbolt-languages `(rustic-mode . ,lang))))
+
+(defun xah-open-in-external-app (&optional file)
+  "Open the current file or dired marked files in external app.
+
+The app is chosen from your OS's preference."
+  (interactive)
+  (let (doIt
+        (myFileList
+         (cond
+          ((string-equal major-mode "dired-mode") (dired-get-marked-files))
+          ((not file) (list (buffer-file-name)))
+          (file (list file)))))
+
+    (setq doIt (if (<= (length myFileList) 5)
+                   t
+                 (y-or-n-p "Open more than 5 files? ") ) )
+
+    (when doIt
+      (cond
+       ((string-equal system-type "windows-nt")
+        (mapc (lambda (fPath) (w32-shell-execute "open" (replace-regexp-in-string "/" "\\" fPath t t)) ) myFileList))
+       ((string-equal system-type "darwin")
+        (mapc (lambda (fPath) (shell-command (format "open \"%s\"" fPath)) )  myFileList) )
+       ((string-equal system-type "gnu/linux")
+        (mapc (lambda (fPath) (let ((process-connection-type nil)) (start-process "" nil "xdg-open" fPath)) ) myFileList) ) ) ) ) )
+
+(after! json
+  (setq-default flycheck-disabled-checkers '(json-python-json)))
+
+(when (featurep! :tools lookup)
+  (map! :leader
+        (:prefix ("c" . "code")
+         "r" #'+lookup/references))
+
+  (map! :nv "gr" #'+lookup/references
+        :nv "gi" #'+lookup/impementations
+        :nv "ga" #'+lookup/assignments))
+
+(map! :leader
+      (:prefix ("r" . "replace")
+       "r" #'lsp-rename)
+      (:prefix ("f" . "file")
+       "B" #'explorer))
+
+(after! counsel
+  (advice-add 'counsel-rg
+              :around
+              (lambda (func &rest args)
+                (cl-letf (((symbol-function #'process-exit-status)
+                           (lambda (_proc) 0)))
+                  (apply func args)))))
+
+(after! indent-tools
+  (require 'indent-tools)
+  (add-hook 'yaml-mode-hook #'indent-tools-minor-mode))
+
+(after! ron-mode
+  (require 'ron-mode))
+
+(after! csharp-mode
+  (c-add-style
+   "ruin" '((c-comment-only-line-offset . 0)
+            (c-hanging-braces-alist (brace-list-open)
+                                    (brace-entry-open)
+                                    (substatement-open before after)
+                                    (block-close . c-snug-do-while)
+                                    (arglist-cont-nonempty))
+            (c-cleanup-list brace-else-brace)
+            (c-offsets-alist
+             (knr-argdecl-intro . 0)
+             (substatement-open . 0)
+             (substatement-label . 0)
+             (statement-cont . +)
+             (case-label . +)
+             ;; align args with open brace OR don't indent at all (if open
+             ;; brace is at eolp and close brace is after arg with no trailing
+             ;; comma)
+             (brace-list-intro . 0)
+             (brace-list-close . -)
+             (arglist-intro . +)
+             (arglist-close +cc-lineup-arglist-close 0)
+             ;; don't over-indent lambda blocks
+             (inline-open . 0)
+             (inlambda . 0)
+             ;; indent access keywords +1 level, and properties beneath them
+             ;; another level
+             (access-label . -)
+             (inclass +cc-c++-lineup-inclass +)
+             (label . 0))))
+
+  (when (listp c-default-style)
+    (setf (alist-get 'csharp-mode c-default-style) "ruin")))
