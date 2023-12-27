@@ -1,4 +1,5 @@
 ;;; $DOOMDIR/config.el -*- lexical-binding: t; -*-
+(require 'shortdoc)
 
 ;; Place your private configuration here! Remember, you do not need to run 'doom
 ;; sync' after modifying this file!
@@ -19,13 +20,17 @@
 ;;
 ;; They all accept either a font-spec, font string ("Input Mono-12"), or xlfd
 ;; font string. You generally only need these two:
-(setq doom-font (font-spec :family "MS Gothic" :size 14))
+;; (setq doom-font (font-spec :family "JetBrains Mono ExtraLight" :size 24))
+(setq doom-font (font-spec :family "ＭＳ ゴシック" :size 20 :spacing 110))
+(setq-default line-spacing 3)
+(set-window-buffer nil (current-buffer)) ; Use them now.
 
 (defun ruin/init-cjk-font ()
   (interactive)
-  (when (window-system) 
-    (dolist (charset '(kana han symbol cjk-misc bopomofo))
-      (set-fontset-font (frame-parameter nil 'font) charset doom-font))))
+  (when (window-system)
+    (let ((spec (font-spec :family "ＭＳ ゴシック" :size 20)))
+      (dolist (charset '(kana han symbol cjk-misc bopomofo))
+        (set-fontset-font (frame-parameter nil 'font) charset spec)))))
 
 (if (daemonp)
     (add-hook 'after-make-frame-functions
@@ -39,10 +44,10 @@
 ;; `load-theme' function. This is the default:
 ;; (setq doom-theme 'doom-one)
 ; (load-theme 'doom-tomorrow-night t)
-(setq doom-theme 'vscode-dark-plus)
-(set-face-background 'mode-line "#454545")
-(set-face-background 'mode-line-inactive "#303030")
-
+;(setq doom-theme 'vscode-dark-plus)
+(setq custom-safe-themes t)
+(setq doom-theme 'doom-material)
+; (doom/set-frame-opacity 90)
 
 ;; If you use `org' and don't want your org files in the default location below,
 ;; change `org-directory'. It must be set before org loads!
@@ -51,6 +56,7 @@
 ;; This determines the style of line numbers in effect. If set to `nil', line
 ;; numbers are disabled. For relative line numbers, set this to `relative'.
 (setq display-line-numbers-type t)
+(setq-default display-line-numbers-width 3)
 
 
 ;; Here are some additional functions/macros that could help you configure Doom:
@@ -76,6 +82,7 @@
 
 (setq tags-add-tables t)
 (savehist-mode 1)
+(setq auth-sources '("~/.authinfo"))
 
 (require 'facemenu)
 
@@ -118,9 +125,13 @@
   (setq lsp-auto-guess-root nil
         lsp-clients-emmy-lua-jar-path (expand-file-name (locate-user-emacs-file "EmmyLua-LS-all.jar"))
         lsp-ui-sideline-enable nil
+        lsp-lens-enable nil
+        lsp-enable-file-watchers nil
+        lsp-file-watch-threshold 10
         lsp-lua-sumneko-workspace-preload-file-size 100000
         lsp-lua-sumneko-workspace-max-preload 100000
-        lsp-lua-sumneko-runtime-version "LuaJIT"))
+        lsp-lua-sumneko-runtime-version "LuaJIT")
+  (add-to-list 'lsp-language-id-configuration '(".*\\.h$" . "cpp")))
 
 (after! ivy
   (setq ivy-height 40))
@@ -268,8 +279,19 @@
   "M-p" #'flycheck-previous-error
   "M-n" #'flycheck-next-error)
 
+(require 'whitespace)
+(setq whitespace-style '(face trailing tabs tab-mark))
+(set-face-foreground 'whitespace-tab "grey50")
+(set-face-background 'whitespace-tab "grey20")
+
 (require 'hsp-mode)
 (add-hook 'hsp-mode-hook (lambda ()
+                           (setq whitespace-style '(face trailing tabs tab-mark))
+                           (setq whitespace-active-style whitespace-style)
+                           (whitespace-mode 1)
+                           (whitespace-color-on)
+                           (indent-tabs-mode t)
+                           (setq tab-width 4)
                            (add-to-list 'compilation-error-regexp-alist '("in line \\([0-9]+\\) \\[\\(.*?\\)\\]" 2 1))
                            (add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\)) :" 1 2))
                            (define-key hsp-mode-map (kbd "C-j") nil)))
@@ -293,8 +315,13 @@
   (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
                '("SetColor(\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\(,\s*\\([0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\)?)"
                  (0 (rainbow-colorize-rgb))))
+  (add-to-list 'rainbow-html-rgb-colors-font-lock-keywords
+               '("new AlphaRGBObject(\s*\\(?4[0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\(?1[0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*,\s*\\(?2[0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\(,\s*\\(?3[0-9]\\{1,3\\}\\(?:\.[0-9]\\)?\\(?:\s*%\\)?\\)\s*\\)?)"
+                 (0 (rainbow-colorize-rgb))))
   (add-hook 'hsp-mode-hook 'rainbow-mode)
-  (add-hook 'csharp-mode-hook 'rainbow-mode))
+  (add-hook 'haxe-mode-hook 'rainbow-mode)
+  (add-hook 'csharp-mode-hook 'rainbow-mode)
+  (add-hook 'yaml-mode-hook 'rainbow-mode))
 
 
 ;;http://steve.yegge.googlepages.com/my-dot-emacs-file
@@ -331,8 +358,13 @@
 (add-to-list 'auto-mode-alist '("\\.tpl?\\'" . mhtml-mode))
 (add-to-list 'auto-mode-alist '("\\.js?\\'" . js-mode))
 (add-to-list 'auto-mode-alist '("\\.lua-format?\\'" . yaml-mode))
+(add-to-list 'auto-mode-alist '("\.xaml$" . nxml-mode))
+(add-to-list 'auto-mode-alist '("\\.hx?\\'" . haxe-mode))
+(add-to-list 'auto-mode-alist '("\\.pcode?\\'" . asm-mode))
+(add-to-list 'auto-mode-alist '("\\.csx?\\'" . csharp-mode))
+(add-to-list 'auto-mode-alist '("\\.dm?\\'" . c-mode))
 
-(setq js-indent-level 2)
+(setq js-indent-level 4)
 
 (after! flycheck
   (add-to-list 'flycheck-checkers 'javascript-jshint))
@@ -402,6 +434,7 @@
            "l" #'open-nefia-send-current-line
            "b" #'open-nefia-send-buffer
            "d" #'open-nefia-hotload-this-file
+           ;; "d" #'ruin/monroe-send-reload
            "r" #'open-nefia-send-region
            "f" #'open-nefia-send-defun))
     )
@@ -414,6 +447,9 @@
           (:prefix ("o" . "context")
            "g" #'open-nefia-context-goto
            "s" #'open-nefia-context-show))))
+
+(add-to-list 'compilation-error-regexp-alist '("::\\(.*\\) file=\\(.*\\),line=\\([0-9]+\\),col=\\([0-9]+*\\)::\\(.*\\)" 2 3 4 1))
+(add-to-list 'compilation-error-regexp-alist '("^\\(.*?\\)(\\([0-9]+\\),\\([0-9]+\\)): \\(.*?\\) \\(.*?\\): \\(.*\\)" 1 2 3 4))
 
 (when (locate-library "open-nefia-cs")
   (require 'open-nefia-cs)
@@ -621,7 +657,7 @@
   (let* ((path (file-relative-name (buffer-file-name) (ruin/parent-dir (projectile-project-root))))
          (line (buffer-substring-no-properties (point-at-bol) (point-at-eol)))
          (path-with-line-number
-          (format "-- >>>>>>>> %s:%d %s ..." path (line-number-at-pos)
+          (format "// >>>>>>>> %s:%d %s ..." path (line-number-at-pos)
                   (substring line 0 (min (length line) 50)))))
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
     (message path-with-line-number)))
@@ -632,7 +668,7 @@
   (let* ((path (file-relative-name (buffer-file-name) (ruin/parent-dir (projectile-project-root))))
          (line (buffer-substring-no-properties (point-at-bol) (point-at-eol)))
          (path-with-line-number
-          (format "-- <<<<<<<< %s:%d %s ..." path (line-number-at-pos)
+          (format "// <<<<<<<< %s:%d %s ..." path (line-number-at-pos)
                   (substring line 0 (min (length line) 50)))))
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
     (message path-with-line-number)))
@@ -654,7 +690,7 @@
          (bor-string (ruin/string-of-line-at-number bor-line))
          (eor-string (ruin/string-of-line-at-number eor-line))
          (path-with-line-number
-          (format "-- >>>>>>>> %s:%d %s ...\n-- <<<<<<<< %s:%d %s ..."
+          (format "// >>>>>>>> %s:%d %s ...\n// <<<<<<<< %s:%d %s ..."
                   path bor-line (substring bor-string 0 (min (length bor-string) 50))
                   path eor-line (substring eor-string 0 (min (length eor-string) 50)))))
     (kill-new (propertize path-with-line-number 'yank-handler (list #'evil-yank-line-handler)))
@@ -692,10 +728,11 @@
     (:format
      (format-all--buffer-hard
       '(0 1) nil '("stylua.toml")
-      executable "-"))))
+      executable "-")))
+  (add-hook 'lua-mode-hook #'format-all-mode))
 
 (map! :leader
-      :desc "Popup terminal" "\"" #'ruin/popup-term
+      :desc "Popup terminal" "\"" #'+popup/restore
       (:prefix-map ("p" . "project")
        :desc "Compile project" "c" #'projectile-compile-project)
       (:prefix-map ("y" . "yank")
@@ -713,6 +750,7 @@
        :desc "Yank region lines" "y" #'ruin/copy-current-region-positions)
       (:prefix-map ("f" . "file")
        :desc "Find file from URL" "w" #'ruin/view-url
+       :desc "Browse URL at point" "u" #'browse-url-at-point
        :desc "Find build" "b" #'ruin/find-build
        :desc "Rename file and buffer" "R" #'ruin/rename-file-and-buffer
        :desc "Move buffer file" "M" #'ruin/move-buffer-file
@@ -800,7 +838,8 @@
       (:prefix ("r" . "replace")
        "r" #'projectile-replace
        "R" #'projectile-replace-regexp
-       "s" #'ruin/refactor-name))
+       "s" #'ruin/refactor-name
+       "i" #'string-inflection-camelcase))
 
 (defun ruin/pop-compilation-buffer ()
   (interactive)
@@ -875,6 +914,7 @@
 (after! monroe
   (setq monroe-default-host "localhost:3939"))
 
+(require 'ron-mode)
 (after! ron-mode
   (setq ron-indent-offset 2))
 
@@ -1016,3 +1056,126 @@ The app is chosen from your OS's preference."
 
   (when (listp c-default-style)
     (setf (alist-get 'csharp-mode c-default-style) "ruin")))
+
+(after! editorconfig
+  (editorconfig-mode 1))
+
+(after! undo-tree
+  (global-undo-tree-mode))
+
+(after! lsp-mode
+  (setq lsp-clients--haxe-server-path "C:/Users/yuno/build/haxe-language-server/bin/server.js"))
+
+(after! haxe-mode
+  (add-hook 'haxe-mode-hook #'lsp)
+  (setq lsp-haxe-executable "C:/HaxeToolkit/haxe/haxe.exe"
+        lsp-haxe-display-server '(:arguments ["-v"])
+        lsp-haxe-configurations ["Export/neko/haxe/debug.hxml"]
+        lsp-haxe-hxml "Export/neko/haxe/debug.hxml"
+        lsp-log-io nil)
+  )
+
+(after! projectile
+  (add-to-list 'projectile-project-root-files-bottom-up "project.xml")
+  (add-to-list 'projectile-project-root-files-bottom-up "haxelib.json"))
+
+(after! ess
+  (setq ess-newest-R
+        (cdar
+         (mapcar #'ess-r-version-date
+                 (if ess-microsoft-p
+                     (ess-rterm-prefer-higher-bit)
+                   (add-to-list 'ess-r-created-runners inferior-ess-r-program))))))
+
+(defun ruin/monroe-send-reload ()
+  (interactive)
+  (monroe-send-request (list "op" "reload" "ns" (car (open-nefia--require-path-of-file (buffer-file-name)))) (monroe-make-response-handler)))
+
+(defun monroe-locate-running-nrepl-host ()
+  "Return host of running nREPL server."
+  (let ((dir (monroe-locate-port-file)))
+    (when dir
+      (with-temp-buffer
+        (insert-file-contents (concat dir ".nrepl-port"))
+        (concat "localhost:" (replace-regexp-in-string "\n$" "" (buffer-string)))))))
+
+(defun file-notify-rm-all-watches ()
+  "Remove all existing file notification watches from Emacs."
+  (interactive)
+  (maphash
+   (lambda (key _value)
+     (file-notify-rm-watch key))
+   file-notify-descriptors))
+
+(after! highlight-indent-guides
+  (add-hook 'python-mode-hook #'highlight-indent-guides-mode)
+  (add-hook 'yaml-mode-hook #'highlight-indent-guides-mode)
+  (add-hook 'highlight-indent-guides-mode-hook (lambda () (hl-line-mode -1)))
+  (setq highlight-indent-guides-method 'fill
+        highlight-indent-guides-character ?\x2502
+        highlight-indent-guides-auto-even-face-perc 25
+        highlight-indent-guides-auto-odd-face-perc 50
+        highlight-indent-guides-auto-top-even-face-perc 90
+        highlight-indent-guides-auto-top-odd-face-perc 90
+        highlight-indent-guides-responsive 'top))
+
+(after! racket-mode
+  (map! :localleader
+        :map racket-mode-map
+        (:prefix ("e" . "eval")
+                 "s" #'racket-eval-last-sexp)))
+
+(after! flycheck
+  (setq-default flycheck-disabled-checkers '(javascript-eslint)))
+
+(after! tide
+  (add-hook 'before-save-hook 'tide-format-before-save)
+
+  (map! :map typescript-mode-map
+        [remap tide-format] #'tide-fix)
+  (map! :localleader
+        :map typescript-mode-map
+        "o" #'tide-format)
+  )
+
+(defun pyrm ()
+  (interactive)
+  (setq command (concatenate 'string "autoflake --in-place --remove-unused-variables " buffer-file-name))
+  (shell-command command)
+  ;; Reload the modified file
+  (revert-buffer t t))
+
+(after! python
+  (map! :localleader
+        :map python-mode-map
+        "r" #'pyrm))
+
+(after! javascript-mode
+  (setq js-indent-level 4))
+
+(after! web-mode
+  (add-hook 'web-mode-hook 'lsp-mode)
+  (add-hook 'web-mode-hook 'lsp)
+  (setq js-indent-level 4)
+  (add-hook 'js-mode-hook 'indent-tabs-mode)
+
+  (map! :localleader
+        :map web-mode-map
+        "f" #'lsp-execute-code-action)
+  )
+
+(after! rust-mode
+  (add-hook 'rust-mode-hook 'lsp-deferred)
+  (map! :localleader
+        :map rust-mode-map
+        "f" #'lsp-execute-code-action))
+
+ (defun transparency (value)
+   "Sets the transparency of the frame window. 0=transparent/100=opaque"
+   (interactive "nTransparency Value 0 - 100 opaque:")
+   (set-frame-parameter (selected-frame) 'alpha value))
+
+
+(after! lsp-mode
+  (require 'lsp-roslyn)
+  (setq lsp-log-io 't))

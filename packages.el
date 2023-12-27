@@ -64,7 +64,7 @@
 
 (package! clang-format)
 
-(package! arduino-mode)
+; (package! arduino-mode)
 
 (package! sed-mode)
 
@@ -86,4 +86,29 @@
 
 (package! indent-tools)
 
-(package! ron-mode)
+(package! ron-mode :recipe (:type git :host nil :repo "https://codeberg.org/Hutzdog/ron-mode.git"))
+
+(package! editorconfig)
+
+(package! undo-tree)
+
+(package! actionscript-mode)
+
+(package! haxe-mode)
+
+(package! janet-mode)
+
+(package! highlight-indent-guides)
+
+(package! powershell)
+
+(package! hurl-mode :recipe
+  (:host github
+   :repo "Orange-OpenSource/hurl"
+   :files ("contrib/emacs/*.el")))
+
+(package! just-mode)
+
+(package! 0xc)
+
+(package! arduino-mode)

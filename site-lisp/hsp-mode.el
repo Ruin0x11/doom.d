@@ -81,6 +81,9 @@ regardless of where in the line point is when the TAB command is used.")
 (defvar hsp-mode-map nil
   "Keymap for HSP mode.")
 
+(defvar hsp-mode-fontify-tags nil
+  "If t, fontify tags using tags tables.")
+
 (if hsp-mode-map
     nil
   (setq hsp-mode-map (make-sparse-keymap))
@@ -180,24 +183,25 @@ tags table for BUF and its (recursively) included tags tables."
       hash)))
 
 (defun hsp-highlight-vars (end)
-  (let ((tags (hsp--make-tags-table)))
-    (catch 'matcher
-      (while (re-search-forward "\\(?:\\sw\\|\\s_\\)+" end t)
-        (let ((ppss (save-excursion (syntax-ppss))))
-          (cond ((nth 3 ppss)  ; strings
-                 (search-forward "\"" end t))
-                ((nth 4 ppss)  ; comments
-                 (forward-line +1))
-                ;; hsp has case-insensitive identifiers...
-                ((let ((symbol (intern-soft (downcase (match-string-no-properties 0)))))
-                   (when-let ((ty (gethash symbol tags)))
-                     (setq hsp--face (cdr ty))
-                     (throw 'matcher t)))))))
-      nil)))
+  (when (or t (hsp-mode-fontify-tags))
+    (let ((tags (hsp--make-tags-table)))
+      (catch 'matcher
+        (while (re-search-forward "\\(?:\\sw\\|\\s_\\)+" end t)
+          (let ((ppss (save-excursion (syntax-ppss))))
+            (cond ((nth 3 ppss)  ; strings
+                   (search-forward "\"" end t))
+                  ((nth 4 ppss)  ; comments
+                   (forward-line +1))
+                  ;; hsp has case-insensitive identifiers...
+                  ((let ((symbol (intern-soft (downcase (match-string-no-properties 0)))))
+                     (when-let ((ty (gethash symbol tags)))
+                       (setq hsp--face (cdr ty))
+                       (throw 'matcher t)))))))
+        nil))))
 
-(dolist (fn '(hsp--make-tags-table hsp-highlight-vars hsp--tag-type))
-  (unless (byte-code-function-p (symbol-function fn))
-    (with-no-warnings (byte-compile fn))))
+;; (dolist (fn '(hsp--make-tags-table hsp-highlight-vars hsp--tag-type))
+;;   (unless (byte-code-function-p (symbol-function fn))
+;;     (with-no-warnings (byte-compile fn))))
 
 (defconst hsp-font-lock-keyword-beg-re "\\(?:^\\|[^.@$:]\\|\\.\\.\\)")
 
@@ -287,7 +291,7 @@ tags table for BUF and its (recursively) included tags tables."
     (,(concat hsp-font-lock-keyword-beg-re
               "\\_<\\(true\\|false\\|falseM\\)\\_>")
      1 font-lock-constant-face)
-    (hsp-highlight-vars 0 hsp--face)
+    ;; (hsp-highlight-vars 0 hsp--face)
     )
   "Additional expressions to highlight in HSP mode.")
 
@@ -295,7 +299,7 @@ tags table for BUF and its (recursively) included tags tables."
 
 (defvar hsp-imenu-generic-expression
   '(("Function"  "^\\s *#def[c]?func\\s +\\(?:[^( \t\n.]*\\.\\)?\\([^( \t\n]+\\)" 1)
-    ("Label"  "^\\*\\([a-zA-Z][_a-zA-Z0-9]+\\)" 1)))
+    ("Label"  "^[ \t]*\\*\\([a-zA-Z][_a-zA-Z0-9]+\\)" 1)))
 
 (defvar hsp-mode-syntax-table nil
   "Syntax table used while in HSP mode.")
